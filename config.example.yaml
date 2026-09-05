@@ -47,7 +47,26 @@ storage:
 
 # ── Charts ─────────────────────────────────────────────────
 charts:
-  # Rolling windows to render. Each produces one PNG.
+  # Rolling windows to render. Each produces one PNG (records_<window>.png).
   windows: ["24h", "48h", "7d", "30d"]
   # Unit shown on the chart y-axis
   metric_unit: "mmol/L"
+
+# ── Dashboard (local web UI) ───────────────────────────────
+# Run with: python3 -m src.dashboard
+dashboard:
+  # Listen address. "0.0.0.0" exposes it on all interfaces (LAN/tunnel);
+  # use "127.0.0.1" if you only want local access.
+  bind: "0.0.0.0"
+  port: 8086
+  # The access password lives in a git-ignored file, never in this repo.
+  # Create it with:  echo 'your-secret' > <this path>
+  access_key_file: "~/.config/secure-record/dashboard-access-key"
+  # Reading colour thresholds (mmol/L): below low → red, above high → amber.
+  low: 3.9
+  high: 7.0
+  # pgrep pattern used by the "service status" card to detect the watcher.
+  watcher_process_pattern: "src.watcher"
+  # Optional: show the last lines of these logs on the page.
+  # pipeline_log: "./data/pipeline.log"
+  # watcher_log: "./data/watcher.log"

@@ -31,11 +31,13 @@ Linux 主机、Termux 手机或容器里。
 | `src/charts.py` | Matplotlib 滚动窗口图表渲染 |
 | `src/seafile_upload.py` | Seafile Web API 上传（覆盖模式） |
 | `src/config.py` | YAML 配置加载，密钥不进源码 |
+| `src/dashboard.py` | 零依赖本地网页面板：最新读数、趋势图、服务状态、登录审计 |
 | `tests/test_t1_v4_compat.py` | T1：发送端 ↔ 本接收端 ↔ 生产接收端 三方结果一致 |
 | `tests/test_t2_real_email.py` | T2：multipart / Formspree 风格 / HTML 转义 JSON / 中文正文 |
 | `tests/test_t3_dedupe.py` | T3：同一封邮件重复处理 → CSV 只有一行 |
 | `tests/test_t4_watcher_idle.py` | T4：手工实现 IMAP IDLE，不调用 `mail.idle()` |
 | `tests/test_t5_no_pii.py` | T5：仓库内零个人/生产环境字符串 |
+| `tests/test_t6_dashboard.py` | T6：面板认证流、会话 cookie、图表路径沙箱 |
 | `docs/PROTOCOL.md` | 完整线上格式规范（v1）—— 足以照此实现一个发送端 |
 | `config.example.yaml` | 配置模板 |
 
@@ -59,16 +61,23 @@ python3 -m src.sender new-kid phone-form  # → kid_secrets.json；secret 只打
 # 把应用专用密码放进一个文件（不是你的账号密码）。
 echo 'abcd efgh ijkl mnop' > ~/.config/secure-record/imap-app-password
 
+# 面板访问口令（独立的 secret，同样 git-ignored）。
+echo 'my-dashboard-secret' > ~/.config/secure-record/dashboard-access-key
+
 # 验证安装（全部离线运行）。
 python3 -m tests.test_t1_v4_compat
 python3 -m tests.test_t2_real_email
 python3 -m tests.test_t3_dedupe
 python3 -m tests.test_t4_watcher_idle
 python3 -m tests.test_t5_no_pii
+python3 -m tests.test_t6_dashboard
 
 # 单次运行管线，或作为常驻 IMAP IDLE 监听。
 python3 -m src.pipeline
 python3 -m src.watcher &
+
+# 可选：本地网页面板（读数、趋势图、状态）。
+python3 -m src.dashboard
 ```
 
 Termux 上：`pkg install python python-cryptography python-matplotlib python-yaml`。
@@ -128,6 +137,28 @@ watcher 断线后按指数退避重连，并每 25 分钟重新进入一次 IMAP
 （Gmail 会掐断更长的 IDLE）；一旦有匹配主题的新邮件到达，就以子进程
 方式运行接收管线。
 
+## 查看数据（网页面板）
+
+`python3 -m src.dashboard` 会在配置的端口（默认 `0.0.0.0:8086`）上
+提供一个零依赖、手机友好的页面：最新读数（数值按阈值着色）、趋势图
+PNG、watcher 状态、日志尾部和登录审计。认证使用
+`dashboard.access_key_file` 里的口令：POST 登录表单验证通过后种下
+一个 7 天有效的 HMAC 会话 cookie。**口令永远不接受出现在 URL 里**
+（否则会留在浏览器历史和隧道日志中）。图表文件**只**从 `charts_dir`
+提供 —— 路径穿越由 T6 测试把关。
+
+手机上怎么访问：
+
+* **局域网** —— 同一网络下直接 `http://<设备IP>:8086`。
+* **Tailscale** —— 完全私有，把应用指向设备的 tailnet IP 即可。
+* **cloudflared** —— `cloudflared tunnel --url http://localhost:8086`
+  可得到一条公网 HTTPS 地址；务必配合面板访问口令使用。命名隧道
+  可以拿到稳定域名。
+
+如实说明的边界（个人/家庭部署可以接受，但要知道）：面板是 HTTP
+明文（TLS 由你的隧道终结或没有）、口令尝试无防爆破限速、服务单一
+用途 —— 口令请设长一些，泄露就换。
+
 ## 配置
 
 整个项目由 `config.yaml` 驱动。每个键的说明见 `config.example.yaml`。
@@ -145,6 +176,9 @@ watcher 断线后按指数退避重连，并每 25 分钟重新进入一次 IMAP
 * `storage.state_path` / `idle_state_path` —— 分别是逐封邮件去重
   （IMAP SEARCH 序号，与生产同一方案）和 watcher 状态的 JSON 文件。
 * `charts.windows` —— 滚动窗口列表（`24h`、`48h`、`7d`、`30d`）。
+* `dashboard.*` —— 监听地址/端口、`access_key_file`（git-ignored）、
+  读数着色阈值（`low`/`high`）、watcher 的 `pgrep` 模式，以及页面
+  可选展示的日志文件。
 
 私钥与各类 token 文件均被 git-ignore。
 
@@ -187,6 +221,7 @@ T2 PASS
 T3 PASS
 T4 PASS
 T5 PASS
+T6 PASS
 ```
 
 整套测试完全离线运行：
@@ -203,6 +238,9 @@ T5 PASS
   密钥块、Termux 绝对路径、游离 UUID）；若你提供 git-ignored 的
   `tests/pii_patterns.local`（每行 `label|regex`），还会扫描你自己的
   具体敏感值。任何命中都拒绝通过。
+* T6 在临时端口上启动真实面板服务，实测认证流（POST 错误/正确口令）、
+  断言 URL 查询串携带口令按设计被拒绝、会话 cookie、`/api/status`，
+  并断言图表请求无法逃出 `charts_dir`（路径穿越 → 404）。
 
 ## 背景
 

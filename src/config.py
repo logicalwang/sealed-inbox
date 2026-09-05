@@ -24,7 +24,8 @@ def _project_root(cfg_path: Path) -> Path:
 
 
 def _resolve(p: str, root: Path) -> Path:
-    pp = Path(p)
+    pp = Path(p).expanduser()   # "~/.config/..." must resolve against $HOME,
+                                # not be treated as a repo-relative path
     return pp if pp.is_absolute() else (root / pp).resolve()
 
 
@@ -89,11 +90,24 @@ class ChartsConfig:
 
 
 @dataclass
+class DashboardConfig:
+    bind: str = "0.0.0.0"
+    port: int = 8086
+    access_key_file: Path = Path("~/.config/secure-record/dashboard-access-key")
+    low: float = 3.9          # below → red (mmol/L)
+    high: float = 7.0         # above → amber
+    watcher_process_pattern: str = "src.watcher"
+    pipeline_log: Path | None = None   # optional log tail on the page
+    watcher_log: Path | None = None
+
+
+@dataclass
 class AppConfig:
     imap: ImapConfig
     crypto: CryptoConfig
     storage: StorageConfig
     charts: ChartsConfig
+    dashboard: DashboardConfig
     archive: ArchiveConfig
     project_root: Path
 
@@ -157,11 +171,26 @@ def load_config(path: str | os.PathLike[str] | None = None) -> AppConfig:
             replace_existing=bool(sf.get("replace_existing", True)),
         )
 
+    d_raw = raw.get("dashboard", {}) or {}
+    dashboard = DashboardConfig(
+        bind=str(d_raw.get("bind", "0.0.0.0")),
+        port=int(d_raw.get("port", 8086)),
+        access_key_file=_resolve(
+            d_raw.get("access_key_file", "~/.config/secure-record/dashboard-access-key"),
+            root),
+        low=float(d_raw.get("low", 3.9)),
+        high=float(d_raw.get("high", 7.0)),
+        watcher_process_pattern=str(d_raw.get("watcher_process_pattern", "src.watcher")),
+        pipeline_log=_resolve(d_raw["pipeline_log"], root) if d_raw.get("pipeline_log") else None,
+        watcher_log=_resolve(d_raw["watcher_log"], root) if d_raw.get("watcher_log") else None,
+    )
+
     return AppConfig(
         imap=imap,
         crypto=crypto,
         storage=storage,
         charts=charts,
+        dashboard=dashboard,
         archive=archive,
         project_root=root,
     )

@@ -34,11 +34,13 @@ uploads to Seafile.
 | `src/charts.py` | Matplotlib rolling-window chart renderer |
 | `src/seafile_upload.py` | Seafile Web API upload (overwrite mode) |
 | `src/config.py` | YAML config loader, secrets stay out of source |
+| `src/dashboard.py` | Zero-dependency local web dashboard: readings, trend charts, status, login audit |
 | `tests/test_t1_v4_compat.py` | T1: sender ↔ this receiver ↔ production receiver all agree |
 | `tests/test_t2_real_email.py` | T2: multipart / Formspree-style / HTML-escaped JSON / Chinese text |
 | `tests/test_t3_dedupe.py` | T3: same IMAP UID twice → exactly one CSV row |
 | `tests/test_t4_watcher_idle.py` | T4: hand-rolled IMAP IDLE, no `mail.idle()` calls |
 | `tests/test_t5_no_pii.py` | T5: zero personal / production strings in the repo |
+| `tests/test_t6_dashboard.py` | T6: dashboard auth flow, session cookie, chart-path sandbox |
 | `docs/PROTOCOL.md` | Complete wire-format spec (v1) — enough to build a sender |
 | `config.example.yaml` | Configuration template |
 
@@ -62,16 +64,23 @@ python3 -m src.sender new-kid phone-form  # → kid_secrets.json; prints the sec
 # Drop an app password into a file (NOT your real account password).
 echo 'abcd efgh ijkl mnop' > ~/.config/secure-record/imap-app-password
 
+# Dashboard access password (separate secret, also git-ignored).
+echo 'my-dashboard-secret' > ~/.config/secure-record/dashboard-access-key
+
 # Verify the install (all offline).
 python3 -m tests.test_t1_v4_compat
 python3 -m tests.test_t2_real_email
 python3 -m tests.test_t3_dedupe
 python3 -m tests.test_t4_watcher_idle
 python3 -m tests.test_t5_no_pii
+python3 -m tests.test_t6_dashboard
 
 # Run the pipeline once, or as a long-lived IMAP IDLE watcher.
 python3 -m src.pipeline
 python3 -m src.watcher &
+
+# Optional: local web dashboard (readings, charts, status).
+python3 -m src.dashboard
 ```
 
 On Termux: `pkg install python python-cryptography python-matplotlib python-yaml`.
@@ -134,6 +143,33 @@ The watcher reconnects with exponential backoff and re-enters IMAP
 IDLE every 25 minutes (Gmail drops longer IDLEs); the pipeline runs as
 a subprocess whenever new matching mail arrives.
 
+## View your data (dashboard)
+
+`python3 -m src.dashboard` serves a mobile-friendly, zero-dependency
+web page on the configured port (default `0.0.0.0:8086`): latest
+readings with colour-coded values, the trend-chart PNGs, watcher
+status, log tails and a login audit. It authenticates with the access
+key from `dashboard.access_key_file`: the POST login form sets a 7-day
+HMAC session cookie. The password is **never accepted in a URL** (it
+would end up in browser history and tunnel logs). Chart files are
+served **only** from `charts_dir` — path traversal is tested against
+in T6.
+
+Reaching it from your phone:
+
+* **LAN** — `http://<device-ip>:8086` while on the same network.
+* **Tailscale** — keeps it fully private; point the app at the
+  device's tailnet IP.
+* **cloudflared** — `cloudflared tunnel --url http://localhost:8086`
+  gives you a public HTTPS URL; put the tunnel behind the dashboard
+  access key. Named tunnels give you a stable hostname.
+
+Honest limits (fine for a personal/family deployment, but know them):
+the dashboard speaks plain HTTP (TLS terminates at your tunnel or
+nowhere), there is no rate limiting on password attempts, and the
+server is single-purpose — keep the access key long and rotate it if
+it leaks.
+
 ## Configuration
 
 The whole project is driven by `config.yaml`. See `config.example.yaml`
@@ -153,6 +189,9 @@ for every key. Notable fields:
   per-message dedup (IMAP SEARCH ids, same scheme as production) and
   watcher state respectively.
 * `charts.windows` — list of rolling windows (`24h`, `48h`, `7d`, `30d`).
+* `dashboard.*` — bind address/port, `access_key_file` (git-ignored),
+  reading colour thresholds (`low`/`high`), the watcher `pgrep`
+  pattern and optional log tails for the web page.
 
 The private key and any token files are git-ignored.
 
@@ -201,6 +240,7 @@ T2 PASS
 T3 PASS
 T4 PASS
 T5 PASS
+T6 PASS
 ```
 
 The test suite is fully offline:
@@ -221,6 +261,11 @@ The test suite is fully offline:
   paths, stray UUIDs) plus, if you provide a git-ignored
   `tests/pii_patterns.local` (`label|regex` per line), your own
   concrete values. It refuses to pass if anything fires.
+* T6 starts the real dashboard server on an ephemeral port and
+  exercises the auth flow (wrong/right password via POST), asserts
+  that a password carried in a URL query string is rejected by
+  design, the session cookie, `/api/status`, and that chart requests
+  cannot escape `charts_dir` (path traversal → 404).
 
 ## Background
 
