@@ -1,0 +1,57 @@
+# sealed-inbox
+
+> Self-hosted receiver for end-to-end-encrypted personal records sent over
+> plain email: any browser tab is the sender (RSA-OAEP-256 + AES-256-GCM
+> "v4" envelope); only the receiver's private key can open them. Python
+> 3.10+, stdlib + `cryptography` + `PyYAML` (+ `matplotlib` for charts).
+
+Pipeline: an encrypted email lands in an IMAP mailbox → the watcher (IMAP
+IDLE, hand-rolled because stdlib `imaplib` has no `.idle()`) triggers the
+one-shot receiver → the envelope is decrypted and appended to a UTF-8-sig
+CSV (`timestamp, glucose_value, unit, context, note, source`) → trend-chart
+PNGs regenerate → optional Seafile archive → a zero-dependency local web
+dashboard shows readings, charts and status.
+
+Quick start (the full walkthrough is in README.md):
+
+```bash
+git clone https://github.com/<owner>/sealed-inbox.git && cd sealed-inbox
+pip install cryptography pyyaml matplotlib        # or apt install python3-*
+cp config.example.yaml config.yaml                # fill in imap.username
+python3 -m src.sender generate keys               # keypair → keys/ (git-ignored)
+python3 -m src.sender new-kid phone-form          # kid secret → kid_secrets.json
+echo '<app-password>' > ~/.config/secure-record/imap-app-password
+echo '<dashboard-secret>' > ~/.config/secure-record/dashboard-access-key
+python3 -m tests.test_t1_v4_compat                # also t2..t6 — all offline
+python3 -m src.watcher &                          # IMAP IDLE receiver
+python3 -m src.dashboard                          # web UI on :8086 (POST login)
+```
+
+Wire format in one line: the email body is `OPENCLAW_SECURE_RECORD_V1\n`
+followed by pretty-printed JSON
+`{v:1, kid, ts(ms), nonce, alg, ek, iv, ct, mac}` where `ek`/`iv`/`ct` are
+independent base64url fields. The alias marker `HERMES_SECURE_RECORD_V1` is
+also accepted. The receiver does **not** verify `mac` and does **not**
+filter by `kid` (parity with the production receiver it was ported from);
+possession of the RSA public key is the real submission capability — rotate
+it if it leaks. The dashboard password lives in a git-ignored file, is only
+accepted via the POST login form (never in a URL), and chart files are
+served strictly from `charts_dir`.
+
+## Docs
+
+- [README.md](README.md): full setup, sender wiring, dashboard, deployment (systemd/Termux/cloudflared/Tailscale), security properties
+- [README.zh-CN.md](README.zh-CN.md): 简体中文版完整文档
+- [docs/PROTOCOL.md](docs/PROTOCOL.md): complete v4 wire-format specification — enough to implement a sender from scratch
+- [config.example.yaml](config.example.yaml): every configuration key, with comments
+
+## Optional
+
+- [src/envelope.py](src/envelope.py): envelope parse + decrypt (marker line → html.unescape → brace-matched JSON → base64url → RSA-OAEP-SHA256 → AES-256-GCM)
+- [src/pipeline.py](src/pipeline.py): one-shot receiver (IMAP fetch, MIME extract, decrypt, dedupe, CSV append, charts, archive)
+- [src/watcher.py](src/watcher.py): long-running IMAP IDLE loop with backoff
+- [src/dashboard.py](src/dashboard.py): zero-dependency web UI (HMAC session cookie, path-traversal-safe chart serving)
+- [src/sender.py](src/sender.py): reference sender + setup CLI (`generate`, `new-kid`)
+- [src/seafile_upload.py](src/seafile_upload.py): optional Seafile archive upload
+- [src/config.py](src/config.py): YAML config loader
+- [tests/](tests/): T1 sender↔receiver↔production-oracle · T2 multipart/Formspree reality · T3 dedupe · T4 hand-rolled IDLE · T5 no-PII scan · T6 dashboard auth + traversal sandbox — all offline

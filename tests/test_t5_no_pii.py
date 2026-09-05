@@ -82,6 +82,7 @@ ALLOWED_OPENCLAW_FILES = {
     Path(".env.example"),
     Path("README.md"),
     Path("README.zh-CN.md"),
+    Path("llms.txt"),
 }
 
 
