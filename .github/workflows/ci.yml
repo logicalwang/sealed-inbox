@@ -1,0 +1,24 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install cryptography matplotlib pyyaml
+      - name: Run the offline test suite (T1–T5)
+        run: |
+          for t in test_t1_v4_compat test_t2_real_email test_t3_dedupe test_t4_watcher_idle test_t5_no_pii; do
+            echo "== $t =="
+            python3 -m "tests.$t"
+          done

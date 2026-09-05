@@ -1,0 +1,32 @@
+# Secrets — never commit
+.env
+config.yaml
+*.pem
+kid_secrets.json
+secrets/
+
+# Runtime data
+data/
+data/records.csv
+data/charts/
+data/state.json
+data/email_state.json
+data/idle_state.json
+data/url_state.txt
+*.log
+*.pid
+
+# Test working directories (T1/T2/T3 generate keypairs + sample CSVs
+# under tests/_t*_work, which would otherwise leak fake private keys).
+tests/_t*_work/
+
+# Personal PII patterns for T5 — your own values, never published.
+tests/pii_patterns.local
+
+__pycache__/
+*.pyc
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/

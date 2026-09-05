@@ -1,0 +1,53 @@
+# Secure Record Receiver — example configuration
+# Copy to config.yaml and fill in your own values.
+# config.yaml is git-ignored; never commit real secrets.
+
+# ── IMAP source ─────────────────────────────────────────────
+imap:
+  host: imap.gmail.com
+  port: 993
+  # Address that receives the encrypted record emails
+  username: "your-receiver@example.com"
+  # Path to a file containing the IMAP app password (NOT the account password)
+  app_password_file: "~/.config/secure-record/imap-app-password"
+  # Subject the receiver searches for. This MUST contain the subject
+  # your sender uses — the reference web frontend (secure-relay-fast)
+  # defaults to "[OpenClaw Secure Record]".
+  subject_prefix: "[OpenClaw Secure Record]"
+  # How far back to search for candidate messages
+  since_days: 30
+
+# ── Identity / crypto ──────────────────────────────────────
+crypto:
+  # Path to the RSA private key (PEM, RSA-OAEP, SHA-256)
+  private_key_path: "./keys/record_decrypt_private.pem"
+  # Sender-side kid secrets: {kid: {secret, ...}}. The receiver reads
+  # this only for logging — it does not verify the mac (see PROTOCOL.md §6).
+  kid_secrets_path: "./kid_secrets.json"
+
+# ── Storage ────────────────────────────────────────────────
+storage:
+  # Where the decrypted records are appended (CSV, utf-8-sig)
+  records_csv: "./data/records.csv"
+  # Where generated charts are written
+  charts_dir: "./data/charts"
+  # Pipeline dedup state (IMAP SEARCH ids + processed-id list)
+  state_path: "./data/email_state.json"
+  # Watcher state (last seen id + counters)
+  idle_state_path: "./data/idle_state.json"
+  # Optional: archive backend. "local" = write only, "seafile" = upload too
+  archive:
+    backend: "local"           # "local" | "seafile"
+    seafile:
+      server_url: "https://seafile.example.com"
+      repo_id: ""              # UUID of the target library
+      token_file: "~/.config/secure-record/seafile-token"
+      # When true, overwrite remote files with the same name
+      replace_existing: true
+
+# ── Charts ─────────────────────────────────────────────────
+charts:
+  # Rolling windows to render. Each produces one PNG.
+  windows: ["24h", "48h", "7d", "30d"]
+  # Unit shown on the chart y-axis
+  metric_unit: "mmol/L"
