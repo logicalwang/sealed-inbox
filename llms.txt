@@ -36,8 +36,13 @@ also accepted. The receiver does **not** verify `mac` and does **not**
 filter by `kid` (parity with the production receiver it was ported from);
 possession of the RSA public key is the real submission capability — rotate
 it if it leaks. The dashboard password lives in a git-ignored file, is only
-accepted via the POST login form (never in a URL), and chart files are
-served strictly from `charts_dir`.
+accepted via the POST login form (never in a URL, bodies > 64 KB
+refused) behind per-IP rate limiting, and chart files are served
+strictly from `charts_dir`. Optional hardening: `crypto.require_valid_mac`
+turns the public-key-only submission model into real sender
+authentication (the reference frontend already signs), and
+crypto.max_age_hours` adds a freshness window. CSV cells are
+formula-injection-safe.
 
 ## Docs
 

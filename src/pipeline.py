@@ -27,12 +27,13 @@ import logging
 import ssl
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable
 from src.config import AppConfig, load_config
-from src.envelope import PROTOCOL_MARKERS, decrypt_email_body, extract_envelope
+from src.envelope import PROTOCOL_MARKERS, decrypt_envelope, extract_envelope, verify_mac
 from src.seafile_upload import archive_files
 
 log = logging.getLogger("pipeline")
@@ -148,6 +149,14 @@ def _extract_body(msg: email.message.Message) -> str:
         return payload.decode("utf-8", errors="replace")
 
 
+def _csv_safe(value) -> str:
+    """Neutralise spreadsheet formula injection: a cell starting with
+    = + - @ or a tab would execute as a formula when the CSV is opened
+    in Excel/LibreOffice. Standard OWASP mitigation: prefix with `'`."""
+    s = str(value)
+    return "'" + s if s[:1] in ("=", "+", "-", "@", "\t", "\r") else s
+
+
 def _append_to_csv(csv_path: Path, record: dict[str, Any]) -> None:
     """Append one row to ``records.csv`` using the production column
     order. ``utf-8-sig`` is the production encoding.
@@ -168,7 +177,8 @@ def _append_to_csv(csv_path: Path, record: dict[str, Any]) -> None:
         context = record.get("context", "未记录")
         note = record.get("note", "")
         writer.writerow(
-            [ts, glucose, unit, context, note, "github-pages-secure-relay-form"]
+            [_csv_safe(c) for c in (ts, glucose, unit, context, note,
+                                    "github-pages-secure-relay-form")]
         )
         log.info("Added: %s - %s %s (%s)", ts, glucose, unit, context)
 
@@ -204,11 +214,17 @@ def _regenerate_charts(cfg: AppConfig, csv_path: Path) -> list[Path]:
 
 
 def process_one(body: str, csv_path: Path, private_key_pem: bytes,
-                kid_secrets: dict[str, str]) -> bool:
-    """Extract + decrypt + append. Returns True on success.
+                kid_secrets: dict[str, str], *,
+                require_valid_mac: bool = False,
+                max_age_hours: float = 0.0) -> bool:
+    """Extract + (optionally) authenticate + decrypt + append.
 
-    Exposed at module level so tests can drive it without touching
-    IMAP.
+    ``require_valid_mac`` turns on real sender authentication: the record
+    must carry a kid that exists in ``kid_secrets`` and a valid HMAC over
+    the envelope (the reference frontend already computes it, so enabling
+    this costs the sender nothing). ``max_age_hours`` rejects records whose
+    ``ts`` is older than that (0 = disabled). Both default to production
+    behaviour. Returns True on success.
     """
     if not any(m in body for m in PROTOCOL_MARKERS):
         return False
@@ -217,11 +233,27 @@ def process_one(body: str, csv_path: Path, private_key_pem: bytes,
     except ValueError as e:
         log.warning("envelope extraction failed: %s", e)
         return False
+
+    if max_age_hours > 0:
+        age_hours = (time.time() * 1000 - env.ts) / 3_600_000
+        if age_hours > max_age_hours:
+            log.warning("record rejected: ts is %.1f h old (limit %.1f h)",
+                        age_hours, max_age_hours)
+            return False
+
     try:
-        record = decrypt_email_body(body, private_key_pem, kid_secrets)[0]
+        record = decrypt_envelope(env, private_key_pem)
     except Exception as e:
         log.warning("decryption failed: %s", e)
         return False
+
+    if require_valid_mac:
+        secret = kid_secrets.get(env.kid)
+        if not secret or not verify_mac(env, secret):
+            log.warning("MAC verification failed for kid=%r — rejecting "
+                        "(crypto.require_valid_mac=true)", env.kid)
+            return False
+
     _append_to_csv(csv_path, record)
     return True
 
@@ -274,7 +306,9 @@ def run(cfg_path: str | None = None) -> int:
         if uid <= last_msg_id or uid in processed_ids:
             continue
         body = _extract_body(msg)
-        if process_one(body, cfg.storage.records_csv, private_key_pem, kid_secrets):
+        if process_one(body, cfg.storage.records_csv, private_key_pem, kid_secrets,
+                       require_valid_mac=cfg.crypto.require_valid_mac,
+                       max_age_hours=cfg.crypto.max_age_hours):
             new_ids.append(uid)
         processed_ids.append(uid)
 

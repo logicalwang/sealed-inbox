@@ -40,7 +40,9 @@ Linux 主机、Termux 手机或容器里。
 | `tests/test_t3_dedupe.py` | T3：同一封邮件重复处理 → CSV 只有一行 |
 | `tests/test_t4_watcher_idle.py` | T4：手工实现 IMAP IDLE，不调用 `mail.idle()` |
 | `tests/test_t5_no_pii.py` | T5：仓库内零个人/生产环境字符串 |
-| `tests/test_t6_dashboard.py` | T6：面板认证流、会话 cookie、图表路径沙箱 |
+| `tests/test_t6_dashboard.py` | T6：面板认证流、会话 cookie、图表路径沙箱、登录限速 |
+| `tests/test_t7_demo.py` | T7：演示模式一键建临时工作区并启动面板 |
+| `tests/test_t8_security.py` | T8：CSV 公式注入防护、严格 MAC 认证、新鲜度窗口 |
 | `docs/PROTOCOL.md` | 完整线上格式规范（v1）—— 足以照此实现一个发送端 |
 | `config.example.yaml` | 配置模板 |
 
@@ -74,6 +76,8 @@ python3 -m tests.test_t3_dedupe
 python3 -m tests.test_t4_watcher_idle
 python3 -m tests.test_t5_no_pii
 python3 -m tests.test_t6_dashboard
+python3 -m tests.test_t7_demo
+python3 -m tests.test_t8_security
 
 # 单次运行管线，或作为常驻 IMAP IDLE 监听。
 python3 -m src.pipeline
@@ -162,9 +166,21 @@ PNG、watcher 状态、日志尾部和登录审计。认证使用
   可得到一条公网 HTTPS 地址；务必配合面板访问口令使用。命名隧道
   可以拿到稳定域名。
 
-如实说明的边界（个人/家庭部署可以接受，但要知道）：面板是 HTTP
-明文（TLS 由你的隧道终结或没有）、口令尝试无防爆破限速、服务单一
-用途 —— 口令请设长一些，泄露就换。
+如实的边界，以及现在已经存在的对应控制：
+
+* **HTTP 明文** —— TLS 由你的隧道（cloudflared）终结，否则只放在内网。
+* **口令爆破** —— POST 登录带按 IP 限速（`dashboard.rate_limit_max`
+  次失败 / `rate_limit_window` 秒内 → 429 锁定；默认 10 次 / 300 秒），
+  超过 64 KB 的登录请求直接拒绝。
+* **发送方认证** —— 信封 `mac` 默认不校验（与生产一致）：任何持有
+  RSA 公钥的人都能以任意 kid 标签提交记录。参考前端本来就对每条
+  记录做了签名，所以设置 `crypto.require_valid_mac: true` 即可零成本
+  升级为真正的发送方认证 —— 未知 kid 和坏签名会被拒绝。
+* **重放** —— `crypto.max_age_hours`（例如 `48`）拒绝过旧的记录；
+  默认关闭（与生产一致）。
+* **表格注入** —— 以 `= + - @` 开头的 CSV 单元格会被加前缀引号，
+  用 Excel 打开 `records.csv` 不会执行任何公式。
+* 访问口令设长一些，泄露就换；RSA 密钥对同理。
 
 ## 配置
 
@@ -231,6 +247,8 @@ T3 PASS
 T4 PASS
 T5 PASS
 T6 PASS
+T7 PASS
+T8 PASS
 ```
 
 整套测试完全离线运行：

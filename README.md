@@ -44,7 +44,9 @@ uploads to Seafile.
 | `tests/test_t3_dedupe.py` | T3: same IMAP UID twice → exactly one CSV row |
 | `tests/test_t4_watcher_idle.py` | T4: hand-rolled IMAP IDLE, no `mail.idle()` calls |
 | `tests/test_t5_no_pii.py` | T5: zero personal / production strings in the repo |
-| `tests/test_t6_dashboard.py` | T6: dashboard auth flow, session cookie, chart-path sandbox |
+| `tests/test_t6_dashboard.py` | T6: dashboard auth flow, session cookie, chart-path sandbox, rate limiting |
+| `tests/test_t7_demo.py` | T7: demo mode builds a throwaway workspace and serves it |
+| `tests/test_t8_security.py` | T8: CSV formula-injection guard, strict MAC auth, freshness window |
 | `docs/PROTOCOL.md` | Complete wire-format spec (v1) — enough to build a sender |
 | `config.example.yaml` | Configuration template |
 
@@ -78,6 +80,8 @@ python3 -m tests.test_t3_dedupe
 python3 -m tests.test_t4_watcher_idle
 python3 -m tests.test_t5_no_pii
 python3 -m tests.test_t6_dashboard
+python3 -m tests.test_t7_demo
+python3 -m tests.test_t8_security
 
 # Run the pipeline once, or as a long-lived IMAP IDLE watcher.
 python3 -m src.pipeline
@@ -173,11 +177,26 @@ Reaching it from your phone:
   gives you a public HTTPS URL; put the tunnel behind the dashboard
   access key. Named tunnels give you a stable hostname.
 
-Honest limits (fine for a personal/family deployment, but know them):
-the dashboard speaks plain HTTP (TLS terminates at your tunnel or
-nowhere), there is no rate limiting on password attempts, and the
-server is single-purpose — keep the access key long and rotate it if
-it leaks.
+Honest limits, and the controls that now exist for them:
+
+* **Plain HTTP** — TLS terminates at your tunnel (cloudflared) or
+  nowhere; otherwise keep it on the LAN.
+* **Password guessing** — the POST login is rate-limited per IP
+  (`dashboard.rate_limit_max` failures within `rate_limit_window`
+  seconds → 429 lockout; defaults 10 / 300 s). Login bodies larger
+  than 64 KB are refused.
+* **Sender authentication** — the envelope `mac` is not verified by
+  default (production parity): anyone holding the RSA public key can
+  submit under any kid label. The reference frontend already signs
+  every record, so setting `crypto.require_valid_mac: true` upgrades
+  this to real sender authentication at zero cost to the sender —
+  unknown kids and bad signatures are then rejected.
+* **Replay** — `crypto.max_age_hours` (e.g. `48`) rejects records whose
+  `ts` is older than that; default off (production parity).
+* **Spreadsheet injection** — CSV cells starting with `= + - @` are
+  quote-prefixed, so opening `records.csv` in Excel executes nothing.
+* Keep the access key long and rotate it (and the RSA keypair) if
+  either leaks.
 
 ## Configuration
 
@@ -252,6 +271,8 @@ T3 PASS
 T4 PASS
 T5 PASS
 T6 PASS
+T7 PASS
+T8 PASS
 ```
 
 The test suite is fully offline:

@@ -25,7 +25,10 @@ import hmac
 import html
 import http.server
 import json
+import logging
+import secrets
 import subprocess
+import time
 import urllib.parse
 from http.cookies import SimpleCookie
 from datetime import datetime
@@ -33,8 +36,37 @@ from pathlib import Path
 
 from src.config import AppConfig, load_config
 
+log = logging.getLogger("dashboard")
+
 SESSION_COOKIE = "sealed_session"
 SESSION_TTL = 7 * 24 * 3600
+MAX_LOGIN_BODY = 65536          # bytes — a login body has no business being bigger
+AUDIT_LOG_MAX_BYTES = 262144    # rotate the login audit beyond this
+AUDIT_LOG_KEEP = 200            # lines kept when rotating
+
+
+class _RateLimiter:
+    """Per-IP login-failure lockout: after ``max_fails`` failures within
+    ``window`` seconds, the IP is blocked until the window slides clear.
+    In-memory only — a restart clears it, which is fine for a personal
+    deployment (the real rate limiter is your tunnel provider's)."""
+
+    def __init__(self, max_fails: int, window: int) -> None:
+        self.max = max(1, max_fails)
+        self.window = max(1, window)
+        self._fails: dict[str, list[float]] = {}
+
+    def blocked(self, ip: str) -> bool:
+        now = time.time()
+        hits = [t for t in self._fails.get(ip, []) if now - t < self.window]
+        self._fails[ip] = hits
+        return len(hits) >= self.max
+
+    def fail(self, ip: str) -> None:
+        self._fails.setdefault(ip, []).append(time.time())
+
+    def reset(self, ip: str) -> None:
+        self._fails.pop(ip, None)
 
 
 # ── Secrets ─────────────────────────────────────────────────
@@ -49,6 +81,8 @@ def load_access_key(cfg: AppConfig) -> str:
     key = path.read_text().strip()
     if not key:
         raise FileNotFoundError(f"dashboard access key file is empty: {path}")
+    if path.stat().st_mode & 0o077:
+        log.warning("access key file %s is group/other-readable — chmod 600 it", path)
     return key
 
 
@@ -110,20 +144,32 @@ def get_client_ip(handler: http.server.BaseHTTPRequestHandler) -> str:
 
 # ── Sessions ────────────────────────────────────────────────
 def make_session_token(access_key: str) -> str:
-    ts = str(int(datetime.now().timestamp()))
-    sig = hmac.new(access_key.encode(), ts.encode(), hashlib.sha256).hexdigest()
-    return f"{ts}.{sig}"
+    """``ts.nonce.signature`` — the nonce keeps two logins in the same
+    second from sharing a token."""
+    ts = str(int(time.time()))
+    nonce = secrets.token_hex(8)
+    sig = hmac.new(access_key.encode(), f"{ts}|{nonce}".encode(),
+                   hashlib.sha256).hexdigest()
+    return f"{ts}.{nonce}.{sig}"
 
 
 def verify_session_token(token: str, access_key: str) -> bool:
+    parts = token.split(".")
+    if len(parts) == 3:
+        ts_s, nonce, sig = parts
+        msg = f"{ts_s}|{nonce}"
+    elif len(parts) == 2:                      # pre-nonce token: keep valid
+        ts_s, sig = parts                      # until its TTL expires
+        msg = ts_s
+    else:
+        return False
     try:
-        ts_s, sig = token.split(".", 1)
         ts = int(ts_s)
-    except Exception:
+    except ValueError:
         return False
-    if int(datetime.now().timestamp()) - ts > SESSION_TTL:
+    if int(time.time()) - ts > SESSION_TTL:
         return False
-    expected = hmac.new(access_key.encode(), ts_s.encode(), hashlib.sha256).hexdigest()
+    expected = hmac.new(access_key.encode(), msg.encode(), hashlib.sha256).hexdigest()
     return hmac.compare_digest(sig, expected)
 
 
@@ -148,6 +194,9 @@ def login_log_path(cfg: AppConfig) -> Path:
 def record_login(cfg: AppConfig, ip: str, path: str, user_agent: str, source: str) -> None:
     p = login_log_path(cfg)
     p.parent.mkdir(parents=True, exist_ok=True)
+    if p.exists() and p.stat().st_size > AUDIT_LOG_MAX_BYTES:
+        keep = p.read_text(encoding="utf-8").splitlines()[-AUDIT_LOG_KEEP:]
+        p.write_text("\n".join(keep) + "\n", encoding="utf-8")
     event = {"ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
              "ip": ip, "path": path, "ua": user_agent, "source": source}
     with p.open("a", encoding="utf-8") as f:
@@ -352,8 +401,19 @@ pre {{ background:#1e293b; color:#e2e8f0; padding:10px; border-radius:8px; font-
 # ── HTTP server ─────────────────────────────────────────────
 def make_server(cfg: AppConfig, access_key: str) -> http.server.ThreadingHTTPServer:
     d = cfg.dashboard
+    limiter = _RateLimiter(d.rate_limit_max, d.rate_limit_window)
 
     class Handler(http.server.BaseHTTPRequestHandler):
+        def version_string(self) -> str:
+            return "sealed-inbox"        # don't advertise the Python version
+
+        def end_headers(self) -> None:
+            # Applied to every response, errors included.
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "no-referrer")
+            super().end_headers()
+
         def _authenticated(self) -> bool:
             token = get_cookie(self, SESSION_COOKIE)
             return bool(token and verify_session_token(token, access_key))
@@ -427,11 +487,22 @@ def make_server(cfg: AppConfig, access_key: str) -> http.server.ThreadingHTTPSer
                 length = int(self.headers.get("Content-Length", 0))
             except ValueError:
                 length = 0
+            if length > MAX_LOGIN_BODY:
+                self.send_error(413)
+                return
             body = self.rfile.read(length).decode("utf-8", "replace")
             sent = urllib.parse.parse_qs(body).get("pw", [""])[0]
+            ip = get_client_ip(self)
+            if limiter.blocked(ip):
+                log.warning("login rate-limited for %s", ip)
+                self._send(_login_page("尝试次数过多，请几分钟后再试"),
+                           "text/html; charset=utf-8", code=429)
+                return
             if sent and hmac.compare_digest(sent, access_key):
+                limiter.reset(ip)
                 self._issue_session("/")
                 return
+            limiter.fail(ip)
             self._send(_login_page("密码不对，再试一次"), "text/html; charset=utf-8")
 
         def log_message(self, format, *args):  # noqa: A002

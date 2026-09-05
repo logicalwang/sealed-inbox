@@ -153,9 +153,64 @@ dashboard:
         # 8. tampered session cookie rejected
         st, body, _ = request("GET", "/", cookie="1756000000.deadbeef")
         check("tampered cookie → login page", st == 200 and "访问密码" in body.decode())
+
+        # 9. hardening headers + no server fingerprint
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+        conn.request("GET", "/")
+        r = conn.getresponse(); r.read()
+        headers = {k.lower(): v for k, v in r.getheaders()}
+        conn.close()
+        check("security headers present",
+              headers.get("x-content-type-options") == "nosniff"
+              and headers.get("x-frame-options") == "DENY"
+              and headers.get("referrer-policy") == "no-referrer")
+        check("server banner suppressed", "python" not in headers.get("server", "").lower())
+
+        # 10. oversized login body → 413 (memory-DoS guard)
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+        conn.request("POST", "/login", body=b"pw=x" + b"A" * 70000,
+                     headers={"Content-Type": "application/x-www-form-urlencoded"})
+        r = conn.getresponse(); r.read()
+        conn.close()
+        check("oversized POST → 413", r.status == 413)
     finally:
         server.shutdown()
         server.server_close()
+
+    if failures:
+        print(f"\nT6 FAIL: {failures}")
+        return 1
+
+    # ── Rate limiting: dedicated server with a tight limit ──
+    text = (work / "config.yaml").read_text().replace(
+        'access_key_file: "',
+        'rate_limit_max: 2\n  rate_limit_window: 60\n  access_key_file: "')
+    cfg2_path = work / "config-rl.yaml"
+    cfg2_path.write_text(text)
+    cfg2 = load_config(cfg2_path)
+    server2 = make_server(cfg2, KEY)
+    port2 = server2.server_address[1]
+    threading.Thread(target=server2.serve_forever, daemon=True).start()
+    try:
+        def rl(method, path, body=None):
+            c = http.client.HTTPConnection("127.0.0.1", port2, timeout=10)
+            h = {"Content-Type": "application/x-www-form-urlencoded"} if body else {}
+            c.request(method, path, body=body, headers=h)
+            r = c.getresponse(); b = r.read()
+            c.close(); return r.status, b
+        for i in range(2):
+            st, _ = rl("POST", "/login", b"pw=wrong")
+        st, body = rl("POST", "/login", b"pw=wrong")
+        ok429 = st == 429 and "尝试次数过多".encode() in body
+        st, body = rl("POST", "/login", f"pw={KEY}".encode())
+        ok_even_correct = st == 429
+        print(f"{'OK  ' if ok429 and ok_even_correct else 'FAIL'} rate limiting: "
+              f"2 fails → 429 (even with the correct password) [{st}]")
+        if not (ok429 and ok_even_correct):
+            failures.append("rate limiting")
+    finally:
+        server2.shutdown()
+        server2.close()
 
     if failures:
         print(f"\nT6 FAIL: {failures}")

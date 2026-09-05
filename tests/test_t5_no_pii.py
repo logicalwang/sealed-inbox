@@ -70,6 +70,7 @@ EXCLUDE_FILES = {
     Path("tests/test_t2_real_email.py"),
     Path("tests/test_t3_dedupe.py"),
     Path("tests/test_t6_dashboard.py"),
+    Path("tests/test_t8_security.py"),
 }
 
 # In `src/`, the marker literal "OPENCLAW_SECURE_RECORD_V1" is a

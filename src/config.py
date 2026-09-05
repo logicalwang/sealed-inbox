@@ -53,6 +53,13 @@ class ImapConfig:
 class CryptoConfig:
     private_key_path: Path
     kid_secrets_path: Path
+    # Sender authentication: the reference frontend signs every record with
+    # the kid secret (mac). Default off = production parity (mac ignored).
+    # When true, records from unknown kids or with a bad mac are rejected.
+    require_valid_mac: bool = False
+    # Optional freshness window in hours: reject records whose ts is older.
+    # 0 = disabled (production parity).
+    max_age_hours: float = 0.0
 
 
 @dataclass
@@ -99,6 +106,10 @@ class DashboardConfig:
     watcher_process_pattern: str = "src.watcher"
     pipeline_log: Path | None = None   # optional log tail on the page
     watcher_log: Path | None = None
+    # Login rate limiting: an IP that fails this many times within the
+    # window is locked out (429) until the window slides clear.
+    rate_limit_max: int = 10
+    rate_limit_window: int = 300
 
 
 @dataclass
@@ -144,6 +155,8 @@ def load_config(path: str | os.PathLike[str] | None = None) -> AppConfig:
     crypto = CryptoConfig(
         private_key_path=_resolve(_require(crypto_raw, "private_key_path", "crypto"), root),
         kid_secrets_path=_resolve(_require(crypto_raw, "kid_secrets_path", "crypto"), root),
+        require_valid_mac=bool(crypto_raw.get("require_valid_mac", False)),
+        max_age_hours=float(crypto_raw.get("max_age_hours", 0) or 0),
     )
 
     storage_raw = _require(raw, "storage", "config.yaml")
@@ -183,6 +196,8 @@ def load_config(path: str | os.PathLike[str] | None = None) -> AppConfig:
         watcher_process_pattern=str(d_raw.get("watcher_process_pattern", "src.watcher")),
         pipeline_log=_resolve(d_raw["pipeline_log"], root) if d_raw.get("pipeline_log") else None,
         watcher_log=_resolve(d_raw["watcher_log"], root) if d_raw.get("watcher_log") else None,
+        rate_limit_max=int(d_raw.get("rate_limit_max", 10)),
+        rate_limit_window=int(d_raw.get("rate_limit_window", 300)),
     )
 
     return AppConfig(

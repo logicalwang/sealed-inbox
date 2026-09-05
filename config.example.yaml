@@ -26,6 +26,14 @@ crypto:
   # Sender-side kid secrets: {kid: {secret, ...}}. The receiver reads
   # this only for logging — it does not verify the mac (see PROTOCOL.md §6).
   kid_secrets_path: "./kid_secrets.json"
+  # Sender authentication — recommended for real deployments. The
+  # reference frontend already signs every record with the kid secret;
+  # default off = production parity (mac ignored). Set true to reject
+  # records from unknown kids or with a bad signature.
+  # require_valid_mac: true
+  # Optional freshness window in hours: reject records older than this
+  # (0 = disabled, production parity).
+  # max_age_hours: 48
 
 # ── Storage ────────────────────────────────────────────────
 storage:
@@ -72,6 +80,10 @@ dashboard:
   high: 7.0
   # pgrep pattern used by the "service status" card to detect the watcher.
   watcher_process_pattern: "src.watcher"
+  # Login rate limiting: an IP that fails this many attempts within this
+  # many seconds gets locked out (429) until the window slides clear.
+  rate_limit_max: 10
+  rate_limit_window: 300
   # Optional: show the last lines of these logs on the page.
   # pipeline_log: "./data/pipeline.log"
   # watcher_log: "./data/watcher.log"
