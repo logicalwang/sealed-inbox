@@ -32,7 +32,7 @@ SECRET = "S" * 43
 def main() -> int:
     work = Path(tempfile.mkdtemp(prefix="sealed-t8-"))
     priv, pub = generate_keypair(work / "keys")
-    kids = {KID: {"secret": SECRET, "enabled": True}}
+    kids = {KID: SECRET}          # receiver contract: kid → secret string
     failures: list[str] = []
 
     def check(name: str, ok: bool, detail: str = "") -> None:
