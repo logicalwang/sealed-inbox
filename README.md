@@ -102,6 +102,8 @@ Four fields connect it to this receiver:
 | 授权密钥 *(auth token)* | the secret printed by `new-kid` (re-read it from `kid_secrets.json`) |
 | 收件邮箱 *(recipient)* | the same address as `imap.username` in `config.yaml` |
 
+![the redesigned sender page](docs/screenshots/frontend-form.png)
+
 Also make sure the form's **主题前缀** *(subject prefix)* equals
 `imap.subject_prefix` in `config.yaml` (the frontend default
 `[OpenClaw Secure Record]` matches the shipped example config). Send
@@ -148,6 +150,8 @@ IDLE every 25 minutes (Gmail drops longer IDLEs); the pipeline runs as
 a subprocess whenever new matching mail arrives.
 
 ## View your data (dashboard)
+
+![dashboard main page](docs/screenshots/dashboard-main.png)
 
 Want a 60-second taste first? `python3 -m src.demo` spins up a
 throwaway workspace with two weeks of fake glucose readings, renders

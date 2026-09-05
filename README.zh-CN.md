@@ -97,6 +97,8 @@ Termux 上：`pkg install python python-cryptography python-matplotlib python-ya
 | 授权密钥 | `new-kid` 打印的 secret（可从 `kid_secrets.json` 重看） |
 | 收件邮箱 | 与 `config.yaml` 里 `imap.username` 相同的地址 |
 
+![重设计后的发送页面](docs/screenshots/frontend-form.png)
+
 同时确认表单的**主题前缀**与 `config.yaml` 的 `imap.subject_prefix`
 一致（前端默认 `[OpenClaw Secure Record]`，与仓库自带的示例配置一致）。
 发一条测试记录，然后：
@@ -141,6 +143,8 @@ watcher 断线后按指数退避重连，并每 25 分钟重新进入一次 IMAP
 方式运行接收管线。
 
 ## 查看数据（网页面板）
+
+![面板主页](docs/screenshots/dashboard-main.png)
 
 想先花 60 秒看一眼？`python3 -m src.demo` 会用一个临时目录生成两周
 的模拟血糖数据、渲染图表并启动面板 —— 完全不碰你的真实配置，
