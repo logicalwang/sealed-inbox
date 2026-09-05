@@ -205,8 +205,8 @@ The test suite is fully offline:
 * T1 generates a fresh keypair, builds a v4 envelope, and asserts the
   same inner record is returned by *both* this repo's receiver *and* a
   reference production receiver. The reference is loaded read-only
-  from the path in `$PROD_RECEIVER_PATH` (defaulting to a Termux
-  path; never modified by the test).
+  from the path in `$PROD_RECEIVER_PATH` (default: unset — the oracle
+  part skips cleanly, e.g. in CI; the file is never modified).
 * T2 builds a real `multipart/alternative` message with HTML-escaped
   JSON (Formspree's reality) and exercises the receiver's email parser.
 * T3 runs the pipeline three times against a mock IMAP server and
