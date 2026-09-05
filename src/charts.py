@@ -47,7 +47,8 @@ def _parse_ts(raw: str) -> datetime | None:
         return None
 
 
-def render(csv_path: Path, out_path: Path, window: str, unit: str) -> int:
+def render(csv_path: Path, out_path: Path, window: str, unit: str,
+           low: float | None = None, high: float | None = None) -> int:
     if window not in WINDOWS:
         print(f"unknown window {window!r}", file=sys.stderr)
         return 2
@@ -92,11 +93,22 @@ def render(csv_path: Path, out_path: Path, window: str, unit: str) -> int:
         print(f"window {window} empty; falling back to all {len(xs)} records", file=sys.stderr)
 
     fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(xs, ys, marker="o", linewidth=1.5)
-    ax.set_xlabel("time")
-    ax.set_ylabel(unit)
-    ax.set_title(f"records — last {window}")
-    ax.grid(True, alpha=0.3)
+    fig.patch.set_facecolor("#ffffff")
+    ax.set_facecolor("#fbfdff")
+    if low is not None and high is not None:
+        # shaded in-range band + dashed threshold lines
+        ax.axhspan(low, high, color="#16a34a", alpha=0.06, zorder=0)
+        ax.axhline(low, color="#dc2626", lw=0.9, ls="--", alpha=0.55)
+        ax.axhline(high, color="#f59e0b", lw=0.9, ls="--", alpha=0.55)
+    ax.plot(xs, ys, marker="o", markersize=4.5, linewidth=1.6,
+            color="#2563eb", zorder=3)
+    ax.grid(True, alpha=0.25, linewidth=0.7)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    ax.set_xlabel("time", fontsize=9, color="#475569")
+    ax.set_ylabel(unit, fontsize=9, color="#475569")
+    ax.set_title(f"records — last {window}", fontsize=11, color="#1e293b", pad=10)
+    ax.tick_params(labelsize=8, colors="#64748b")
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
     fig.autofmt_xdate()
     fig.tight_layout()
@@ -113,8 +125,13 @@ def main() -> int:
     p.add_argument("--out", required=True)
     p.add_argument("--window", required=True, choices=sorted(WINDOWS))
     p.add_argument("--unit", default="mmol/L")
+    p.add_argument("--low", type=float, default=None,
+                   help="in-range lower bound (shaded band + dashed line)")
+    p.add_argument("--high", type=float, default=None,
+                   help="in-range upper bound")
     args = p.parse_args()
-    return render(Path(args.csv), Path(args.out), args.window, args.unit)
+    return render(Path(args.csv), Path(args.out), args.window, args.unit,
+                  low=args.low, high=args.high)
 
 
 if __name__ == "__main__":

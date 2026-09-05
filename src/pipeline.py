@@ -204,7 +204,9 @@ def _regenerate_charts(cfg: AppConfig, csv_path: Path) -> list[Path]:
                  "--csv", str(csv_path),
                  "--out", str(png),
                  "--window", window,
-                 "--unit", cfg.charts.metric_unit],
+                 "--unit", cfg.charts.metric_unit,
+                 "--low", str(cfg.dashboard.low),
+                 "--high", str(cfg.dashboard.high)],
                 check=True, capture_output=True, text=True, timeout=120,
             )
             out.append(png)

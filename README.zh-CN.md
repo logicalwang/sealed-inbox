@@ -9,15 +9,11 @@ English | [简体中文](README.zh-CN.md) | LLM 友好概览：[llms.txt](llms.t
 端到端加密的个人记录。发送端可以是任何带浏览器的设备；接收端可运行在
 Linux 主机、Termux 手机或容器里。
 
-```
-┌──────────┐   标记行 + 缩进 JSON     ┌──────────┐   RFC822 over    ┌──────────┐
-│  发送端   │ ──────────────────────▶ │ 邮件服务器 │ ────────────────▶ │  接收端   │
-│ (任意浏览器)│   RSA-OAEP + AES-GCM  │ (Gmail…) │   IMAP / IDLE    │  (本项目) │
-└──────────┘                          └──────────┘                  └─────┬─────┘
-                                                                         │
-                                                                  CSV、图表、
-                                                                  Seafile
-```
+![记录的旅程](docs/architecture.svg)
+
+另见 [`frontend/`](frontend/) —— 发送端网页源码（线上
+`secure-relay-fast-v4.html` 的直接替换版），以及 [`deploy/`](deploy/)
+—— 脱敏后的生产部署配方（Termux：cloudflared 隧道、开机自启、Telegram 通知）。
 
 线上格式即 `secure-relay-fast-v4.html`（以及任何符合规范的发送端）所产生的
 生产环境 v4 格式。邮件服务器自始至终只能看到不透明的信封；接收端负责解密

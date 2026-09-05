@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>sealed-inbox · 安全记录入口</title>
+<style>
+:root{
+  --bg:#eef2f9; --card:#ffffff; --ink:#0f172a; --muted:#64748b;
+  --line:#e2e8f0; --accent:#2563eb; --accent-dark:#1d4ed8;
+  --ok-bg:#dcfce7; --ok-ink:#166534; --err-bg:#fee2e2; --err-ink:#991b1b;
+  --warn-bg:#fef3c7; --warn-ink:#92400e; --radius:16px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  background:linear-gradient(180deg,#0f172a 0%,#1e293b 180px,var(--bg) 320px);
+  min-height:100vh;color:var(--ink);padding:14px 12px 40px}
+.wrap{max-width:760px;margin:0 auto}
+.hero{background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#f8fafc;border:1px solid #334155;
+  border-radius:var(--radius);padding:26px 22px 20px;margin-bottom:14px;
+  box-shadow:0 10px 30px rgba(15,23,42,.35)}
+.hero .badge{display:inline-block;background:rgba(125,211,252,.16);color:#7dd3fc;
+  border:1px solid rgba(125,211,252,.35);border-radius:999px;padding:3px 12px;
+  font-size:12px;letter-spacing:.5px;margin-bottom:12px}
+.hero h1{font-size:1.7em;letter-spacing:.3px}
+.hero p{margin-top:10px;color:#cbd5e1;font-size:.9em;line-height:1.7}
+.hero code{background:rgba(255,255,255,.1);padding:1px 6px;border-radius:6px;color:#7dd3fc}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:20px 18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+h2{font-size:1.05em;color:#1e293b;margin-bottom:4px}
+h2 + .muted{margin-bottom:12px}
+.muted,.small{color:var(--muted);font-size:.84em;line-height:1.6}
+.small{margin-top:10px}
+label{display:block;font-size:.84em;font-weight:600;color:#334155;margin:0 0 6px 2px}
+input,select,textarea{width:100%;padding:11px 12px;font-size:1em;color:var(--ink);
+  background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;outline:none;
+  transition:border-color .15s, box-shadow .15s;font-family:inherit}
+textarea{min-height:96px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85em;resize:vertical}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(37,99,235,.18);background:#fff}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid .full{grid-column:1 / -1}
+.grid [style*="margin-top"]{margin-top:0 !important}
+.toolbar{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+button{border:none;border-radius:10px;padding:12px 20px;font-size:.95em;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:transform .1s, box-shadow .15s, background .15s}
+button:active{transform:scale(.98)}
+.primary{flex:1;background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;
+  box-shadow:0 4px 12px rgba(37,99,235,.35)}
+.primary:hover{box-shadow:0 6px 16px rgba(37,99,235,.45)}
+.secondary{background:#fff;color:var(--accent-dark);border:1.5px solid var(--accent)}
+.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+button:hover{filter:brightness(1.03)}
+.status{border-radius:10px;padding:11px 13px;margin-top:12px;font-size:.88em;
+  line-height:1.55;display:none}
+.status.ok{display:block;background:var(--ok-bg);color:var(--ok-ink);border:1px solid #bbf7d0}
+.status.err{display:block;background:var(--err-bg);color:var(--err-ink);border:1px solid #fecaca}
+.status.warn{display:block;background:var(--warn-bg);color:var(--warn-ink);border:1px solid #fde68a}
+.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 4px}
+.meta-box{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px;min-width:0}
+.meta-label{font-size:.72em;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.meta-value{font-family:ui-monospace,Menlo,monospace;font-size:.82em;color:var(--ink);
+  margin-top:4px;word-break:break-all}
+#relayConfig{margin-top:18px;border-top:1px dashed var(--line);padding-top:16px}
+#relayConfig h2{font-size:.98em}
+.share{margin-top:16px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:12px}
+.share label{margin-top:0}
+.preview{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:14px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.76em;
+  white-space:pre-wrap;word-break:break-all;line-height:1.55;max-height:320px;overflow-y:auto}
+@media (max-width:640px){
+  .grid{grid-template-columns:1fr}
+  .meta{grid-template-columns:repeat(3,1fr)}
+  button{width:100%}
+  .toolbar button{width:100%}
+  .hero h1{font-size:1.45em}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="badge">快速填写版 v4 · 端到端加密</div>
+    <h1>安全记录入口</h1>
+    <p>记录在本页加密后才离开你的设备：邮件服务器只能看到不透明密文。
+    签名只使用本页内存中的授权密钥，不会从 localStorage 自动恢复 secret。</p>
+  </div>
+
+  <div class="card">
+    <h2>记录表单</h2>
+    <p class="muted">通过含密钥分享链接进入时，第一屏即可直接填写并发送。</p>
+    <div class="grid"><div class="full"><label for="feature">你要调用什么功能？</label><select id="feature"><option value="blood_glucose">记血糖</option><option value="accounting">记账</option></select></div></div>
+    <form id="recordForm"><div id="dynamicFields" class="grid" style="margin-top:14px"></div><div class="toolbar"><button class="primary" type="submit">加密并发送</button><button class="ghost" type="button" id="fillNowBtn">时间设为现在</button></div></form>
+    <div id="submitStatus" class="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>当前 secret 状态</h2>
+    <div class="meta">
+      <div class="meta-box"><div class="meta-label">来源</div><div id="secretSource" class="meta-value">none</div></div>
+      <div class="meta-box"><div class="meta-label">指纹</div><div id="secretFingerprint" class="meta-value">none</div></div>
+      <div class="meta-box"><div class="meta-label">当前 kid</div><div id="currentKid" class="meta-value">none</div></div>
+    </div>
+    <div id="secretStatus" class="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>安全与中继配置</h2>
+    <div class="grid">
+      <div class="full"><label for="recipientEmail">收件邮箱</label><input id="recipientEmail" type="email" placeholder="例如 records@example.com" /></div>
+      <div><label for="subjectPrefix">主题前缀</label><input id="subjectPrefix" type="text" value="[OpenClaw Secure Record]" /></div>
+      <div><label for="sendMode">发送方式</label><select id="sendMode"><option value="relay_post">第三方表单中继 POST</option><option value="mailto">默认邮件客户端</option><option value="gmail">Gmail 写信页</option><option value="copy">只复制密文</option></select></div>
+      <div><label for="keyId">密钥 ID (kid)</label><input id="keyId" type="text" placeholder="例如 record-link-001" /></div>
+      <div><label for="authToken">授权密钥</label><input id="authToken" type="password" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="共享密钥 / 令牌" /></div>
+      <div class="full"><label for="publicKeyPem">接收端公钥 PEM（RSA-OAEP, SPKI）</label><textarea id="publicKeyPem" placeholder="-----BEGIN PUBLIC KEY-----&#10;...&#10;-----END PUBLIC KEY-----"></textarea></div>
+    </div>
+
+    <div id="relayConfig">
+      <h2>第三方表单中继配置</h2>
+      <div class="grid">
+        <div class="full"><label for="relayUrl">Relay POST URL</label><input id="relayUrl" type="url" placeholder="例如 https://example-form-service.com/submit" /></div>
+        <div><label for="relayBodyField">密文字段名</label><input id="relayBodyField" type="text" value="message" /></div>
+        <div><label for="relaySubjectField">主题字段名</label><input id="relaySubjectField" type="text" value="subject" /></div>
+        <div><label for="relayToField">收件人字段名</label><input id="relayToField" type="text" value="to" /></div>
+        <div class="full"><label for="relayExtraFields">附加隐藏字段（JSON）</label><textarea id="relayExtraFields" placeholder='例如 {"_captcha":"false","_template":"table"}'></textarea></div>
+      </div>
+      <div class="small">这个模式使用原生 HTML form POST，不用 fetch，因此不受浏览器 CORS 预检限制。</div>
+    </div>
+
+    <div class="toolbar">
+      <button class="secondary" type="button" id="saveConfigBtn">保存配置</button>
+      <button class="ghost" type="button" id="clearConfigBtn">清空配置</button>
+    </div>
+    <div class="share">
+      <label for="shareUrl">分享链接</label>
+      <input id="shareUrl" type="text" readonly />
+      <div class="toolbar">
+        <button class="secondary" type="button" id="copyShareWithoutSecretBtn">复制链接（不含密钥）</button>
+        <button class="ghost" type="button" id="copyShareWithSecretBtn">复制链接（含密钥）</button>
+      </div>
+      <div class="small">默认更推荐不含密钥版本。只有需要直接授权别人使用时，才分享含密钥版本。</div>
+    </div>
+    <div id="configStatus" class="status"></div>
+  </div>
+
+  <div class="card"><h2>密文信封预览</h2><div id="envelopePreview" class="preview">填写 kid、授权密钥和公钥后，这里会显示将要发送的加密信封。</div></div>
+</div>
+<script>
+const STORAGE_KEY='recording_app_secure_relay_config_v4';
+const bloodGlucoseFields=[{key:'timestamp',label:'记录时间',type:'datetime-local',required:true},{key:'glucose_value',label:'血糖值',type:'number',step:'0.1',required:true,placeholder:'例如 5.4'},{key:'unit',label:'单位',type:'select',required:true,options:['mmol/L','mg/dL']},{key:'context',label:'场景',type:'select',required:true,options:['空腹','餐前','餐后1h','餐后2h','睡前','随机']},{key:'note',label:'备注',type:'textarea',required:false,full:true,placeholder:'可选'}];
+const accountingFields=[{key:'timestamp',label:'记录时间',type:'datetime-local',required:true},{key:'direction',label:'收支方向',type:'select',required:true,options:['支出','收入']},{key:'category',label:'分类',type:'select',required:true,options:['餐饮','交通','购物','学习','房租','医疗','其他']},{key:'item',label:'项目说明',type:'text',required:true,placeholder:'例如 咖啡 / 工资'},{key:'amount',label:'金额',type:'number',step:'0.01',required:true,placeholder:'例如 3.50'},{key:'currency',label:'币种',type:'select',required:true,options:['EUR','CNY','USD']},{key:'payment_method',label:'支付方式',type:'select',required:true,options:['现金','银行卡','微信','支付宝','其他']},{key:'note',label:'备注',type:'textarea',required:false,full:true,placeholder:'可选'}];
+const recipientEmailInput=document.getElementById('recipientEmail'); const subjectPrefixInput=document.getElementById('subjectPrefix'); const sendModeInput=document.getElementById('sendMode'); const keyIdInput=document.getElementById('keyId'); const authTokenInput=document.getElementById('authToken'); const publicKeyPemInput=document.getElementById('publicKeyPem'); const relayUrlInput=document.getElementById('relayUrl'); const relayBodyFieldInput=document.getElementById('relayBodyField'); const relaySubjectFieldInput=document.getElementById('relaySubjectField'); const relayToFieldInput=document.getElementById('relayToField'); const relayExtraFieldsInput=document.getElementById('relayExtraFields'); const shareUrlInput=document.getElementById('shareUrl'); const configStatus=document.getElementById('configStatus'); const submitStatus=document.getElementById('submitStatus'); const secretStatus=document.getElementById('secretStatus'); const secretSourceEl=document.getElementById('secretSource'); const secretFingerprintEl=document.getElementById('secretFingerprint'); const currentKidEl=document.getElementById('currentKid'); const featureSelect=document.getElementById('feature'); const dynamicFields=document.getElementById('dynamicFields'); const recordForm=document.getElementById('recordForm'); const envelopePreview=document.getElementById('envelopePreview'); const relayConfigBox=document.getElementById('relayConfig');
+let secretSource='none';
+let effectiveAuthToken='';
+function nowLocalValue(){const d=new Date();const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
+function setStatus(el,kind,text){el.className=`status ${kind}`;el.textContent=text;} function clearStatus(el){el.className='status';el.textContent='';}
+function getFields(){return featureSelect.value==='accounting'?accountingFields:bloodGlucoseFields;}
+function createField(field){const wrap=document.createElement('div');if(field.full)wrap.classList.add('full');const label=document.createElement('label');label.htmlFor=field.key;label.textContent=field.label+(field.required?' *':'');wrap.appendChild(label);let input;if(field.type==='select'){input=document.createElement('select');field.options.forEach(opt=>{const o=document.createElement('option');o.value=opt;o.textContent=opt;input.appendChild(o);});}else if(field.type==='textarea'){input=document.createElement('textarea');input.placeholder=field.placeholder||'';}else{input=document.createElement('input');input.type=field.type;input.placeholder=field.placeholder||'';if(field.step)input.step=field.step;if(field.type==='datetime-local')input.value=nowLocalValue();}input.id=field.key;input.required=!!field.required;input.addEventListener('input',()=>updateEnvelopePreview(false));input.addEventListener('change',()=>updateEnvelopePreview(false));wrap.appendChild(input);return wrap;}
+function renderFields(){dynamicFields.innerHTML='';getFields().forEach(f=>dynamicFields.appendChild(createField(f)));updateEnvelopePreview(false);clearStatus(submitStatus);} 
+function collectPayload(){const payload={source:'github-pages-secure-relay-form',feature:featureSelect.value};getFields().forEach(field=>{const el=document.getElementById(field.key);let value=el?el.value:'';if(field.type==='number'&&value!=='')value=Number(value);payload[field.key]=value;});return payload;}
+function normalizePem(pem){return pem.replace(/-----BEGIN PUBLIC KEY-----/g,'').replace(/-----END PUBLIC KEY-----/g,'').replace(/\s+/g,'');}
+function base64ToBytes(base64){const binary=atob(base64);const bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);return bytes;}
+function bytesToBase64(bytes){let bin='';bytes.forEach(b=>bin+=String.fromCharCode(b));return btoa(bin);} function base64UrlEncode(bytes){return bytesToBase64(bytes).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function textToBytes(text){return new TextEncoder().encode(text);} function bytesToText(bytes){return new TextDecoder().decode(bytes);} function randomBytes(n){const b=new Uint8Array(n);crypto.getRandomValues(b);return b;}
+async function importRsaPublicKey(pem){const der=base64ToBytes(normalizePem(pem));return crypto.subtle.importKey('spki',der.buffer,{name:'RSA-OAEP',hash:'SHA-256'},false,['encrypt']);}
+async function hmacSha256(secret,message){const key=await crypto.subtle.importKey('raw',textToBytes(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);const sig=await crypto.subtle.sign('HMAC',key,textToBytes(message));return new Uint8Array(sig);} 
+async function sha256Hex(text){const digest=await crypto.subtle.digest('SHA-256',textToBytes(text));return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function updateSecretMeta(){secretSourceEl.textContent=secretSource; currentKidEl.textContent=keyIdInput.value.trim()||'none'; if(!effectiveAuthToken){secretFingerprintEl.textContent='none'; setStatus(secretStatus,'warn','当前没有可用的 authToken。页面不会从 localStorage 自动恢复 secret。'); return;} const fp=(await sha256Hex(effectiveAuthToken)).slice(0,12); secretFingerprintEl.textContent=fp; if(secretSource==='hash'){setStatus(secretStatus,'ok',`当前 secret 来源：分享链接 hash；指纹：${fp}`);} else if(secretSource==='manual'){setStatus(secretStatus,'warn',`当前 secret 来源：手动输入；指纹：${fp}`);} else {setStatus(secretStatus,'warn',`当前 secret 来源：${secretSource}；指纹：${fp}`);}}
+function setEffectiveAuthToken(value,source){effectiveAuthToken=(value||'').trim(); secretSource=effectiveAuthToken?source:'none'; authTokenInput.value=effectiveAuthToken; updateSecretMeta();}
+async function buildEnvelope(){const pem=publicKeyPemInput.value.trim(); const kid=keyIdInput.value.trim(); const secret=effectiveAuthToken; if(!pem||!kid||!secret) return null; const payload=collectPayload(); const plaintext=textToBytes(JSON.stringify(payload)); const aesKey=await crypto.subtle.generateKey({name:'AES-GCM',length:256},true,['encrypt']); const iv=randomBytes(12); const ctBuf=await crypto.subtle.encrypt({name:'AES-GCM',iv},aesKey,plaintext); const rawAes=await crypto.subtle.exportKey('raw',aesKey); const pub=await importRsaPublicKey(pem); const ekBuf=await crypto.subtle.encrypt({name:'RSA-OAEP'},pub,rawAes); const ek=base64UrlEncode(new Uint8Array(ekBuf)); const ivs=base64UrlEncode(iv); const ct=base64UrlEncode(new Uint8Array(ctBuf)); const nonce=base64UrlEncode(randomBytes(16)); const ts=Date.now(); const canonical=[1,kid,ts,nonce,ek,ivs,ct].join('|'); const mac=base64UrlEncode(await hmacSha256(secret,canonical)); return {v:1,kid,ts,nonce,alg:'RSA-OAEP-256/AES-256-GCM/HMAC-SHA-256',ek,iv:ivs,ct,mac}; }
+function buildSubject(){return subjectPrefixInput.value.trim()||'[OpenClaw Secure Record]';}
+function buildBody(envelope){return 'OPENCLAW_SECURE_RECORD_V1\n'+JSON.stringify(envelope,null,2);} 
+function encodeTextToB64u(text){return base64UrlEncode(textToBytes(text));} function decodeB64uToText(str){if(!str) return ''; let b64=str.replace(/-/g,'+').replace(/_/g,'/'); while(b64.length%4) b64+='='; return bytesToText(base64ToBytes(b64)); }
+function updateRelayVisibility(){relayConfigBox.style.display = sendModeInput.value==='relay_post' ? 'block' : 'none';}
+function updateShareUrl(includeSecret=false){const p=new URLSearchParams(); [['recipientEmail',recipientEmailInput.value.trim()],['subjectPrefix',subjectPrefixInput.value.trim()],['sendMode',sendModeInput.value],['keyId',keyIdInput.value.trim()],['relayUrl',relayUrlInput.value.trim()],['relayBodyField',relayBodyFieldInput.value.trim()],['relaySubjectField',relaySubjectFieldInput.value.trim()],['relayToField',relayToFieldInput.value.trim()],['relayExtraFields',relayExtraFieldsInput.value.trim()]].forEach(([k,v])=>{if(v)p.set(k,v);}); if(publicKeyPemInput.value.trim()) p.set('pub',encodeTextToB64u(publicKeyPemInput.value.trim())); if(includeSecret&&effectiveAuthToken) p.set('authToken',effectiveAuthToken); shareUrlInput.value=`${location.origin}${location.pathname}${p.toString()?'#'+p.toString():''}`; }
+async function copyShare(includeSecret){updateShareUrl(includeSecret); try{await navigator.clipboard.writeText(shareUrlInput.value); setStatus(configStatus,'ok',includeSecret?'已复制含密钥分享链接。':'已复制不含密钥分享链接。');}catch{setStatus(configStatus,'warn','复制失败，请手动复制。');}}
+function saveConfig(){localStorage.setItem(STORAGE_KEY,JSON.stringify({recipientEmail:recipientEmailInput.value.trim(),subjectPrefix:subjectPrefixInput.value.trim(),sendMode:sendModeInput.value,keyId:keyIdInput.value.trim(),publicKeyPem:publicKeyPemInput.value.trim(),relayUrl:relayUrlInput.value.trim(),relayBodyField:relayBodyFieldInput.value.trim(),relaySubjectField:relaySubjectFieldInput.value.trim(),relayToField:relayToFieldInput.value.trim(),relayExtraFields:relayExtraFieldsInput.value.trim()})); updateShareUrl(false); setStatus(configStatus,'ok','配置已保存到当前浏览器。authToken 不会保存。');}
+function clearConfig(){localStorage.removeItem(STORAGE_KEY); recipientEmailInput.value=''; subjectPrefixInput.value='[OpenClaw Secure Record]'; sendModeInput.value='relay_post'; keyIdInput.value=''; setEffectiveAuthToken('', 'none'); publicKeyPemInput.value=''; relayUrlInput.value=''; relayBodyFieldInput.value='message'; relaySubjectFieldInput.value='subject'; relayToFieldInput.value='to'; relayExtraFieldsInput.value=''; updateRelayVisibility(); updateShareUrl(false); setStatus(configStatus,'warn','已清空当前浏览器中的配置。'); updateEnvelopePreview(false);} 
+function loadConfig(){try{const raw=localStorage.getItem(STORAGE_KEY); if(!raw)return; const c=JSON.parse(raw); recipientEmailInput.value=c.recipientEmail||''; subjectPrefixInput.value=c.subjectPrefix||'[OpenClaw Secure Record]'; sendModeInput.value=c.sendMode||'relay_post'; keyIdInput.value=c.keyId||''; publicKeyPemInput.value=c.publicKeyPem||''; relayUrlInput.value=c.relayUrl||''; relayBodyFieldInput.value=c.relayBodyField||'message'; relaySubjectFieldInput.value=c.relaySubjectField||'subject'; relayToFieldInput.value=c.relayToField||'to'; relayExtraFieldsInput.value=c.relayExtraFields||'';}catch(e){console.warn(e);}}
+function loadHashConfig(){const hash=location.hash?location.hash.slice(1):''; if(!hash)return; const p=new URLSearchParams(hash); [['recipientEmail',recipientEmailInput],['subjectPrefix',subjectPrefixInput],['sendMode',sendModeInput],['keyId',keyIdInput],['relayUrl',relayUrlInput],['relayBodyField',relayBodyFieldInput],['relaySubjectField',relaySubjectFieldInput],['relayToField',relayToFieldInput],['relayExtraFields',relayExtraFieldsInput]].forEach(([k,el])=>{if(p.get(k))el.value=p.get(k);}); if(p.get('pub')) publicKeyPemInput.value=decodeB64uToText(p.get('pub')); if(p.get('authToken')) setEffectiveAuthToken(p.get('authToken'),'hash');}
+async function updateEnvelopePreview(showErrors){try{await updateSecretMeta(); const env=await buildEnvelope(); envelopePreview.textContent=env?JSON.stringify(env,null,2):'请先填写 kid、授权密钥和公钥。';}catch(e){envelopePreview.textContent='信封生成失败：'+e.message; if(showErrors) setStatus(submitStatus,'err','信封生成失败：'+e.message); }}
+function openMailto(to,subject,body){location.href=`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;} function openGmail(to,subject,body){const url=new URL('https://mail.google.com/mail/u/0/'); url.searchParams.set('view','cm'); url.searchParams.set('fs','1'); url.searchParams.set('to',to); url.searchParams.set('su',subject); url.searchParams.set('body',body); window.open(url.toString(),'_blank','noopener');}
+async function copyText(text){try{await navigator.clipboard.writeText(text); setStatus(submitStatus,'ok','密文已复制。');}catch{setStatus(submitStatus,'warn','复制失败，请手动复制。');}}
+function postRelayForm(fields){const action=relayUrlInput.value.trim(); if(!action){setStatus(submitStatus,'err','请先填写 Relay POST URL。'); return false;} let extras={}; const extraRaw=relayExtraFieldsInput.value.trim(); if(extraRaw){try{extras=JSON.parse(extraRaw);}catch{setStatus(submitStatus,'err','附加隐藏字段 JSON 格式错误。'); return false;}} const form=document.createElement('form'); form.method='POST'; form.action=action; form.target='_blank'; form.style.display='none'; Object.entries({...extras,...fields}).forEach(([k,v])=>{if(k&&v!==undefined&&v!==null&&String(v)!==''){const input=document.createElement('input'); input.type='hidden'; input.name=k; input.value=String(v); form.appendChild(input);}}); document.body.appendChild(form); form.submit(); form.remove(); return true; }
+function fillNow(){const ts=document.getElementById('timestamp'); if(ts){ts.value=nowLocalValue(); updateEnvelopePreview(false);}}
+async function submitRecord(e){e.preventDefault(); clearStatus(submitStatus); if(!recordForm.reportValidity()){setStatus(submitStatus,'err','请先补全必填项。'); return;} const to=recipientEmailInput.value.trim(); const env=await buildEnvelope().catch(err=>{setStatus(submitStatus,'err','加密失败：'+err.message); return null;}); if(!env) return; const subject=buildSubject(); const body=buildBody(env); if(sendModeInput.value==='relay_post'){const ok=postRelayForm({[relayBodyFieldInput.value.trim()||'message']:body,[relaySubjectFieldInput.value.trim()||'subject']:subject,[relayToFieldInput.value.trim()||'to']:to}); if(ok) setStatus(submitStatus,'ok','已向第三方表单中继提交密文。'); return;} if(!to){setStatus(submitStatus,'err','请先填写收件邮箱。'); return;} if(sendModeInput.value==='mailto'){openMailto(to,subject,body); setStatus(submitStatus,'ok','已尝试打开默认邮件客户端。');} else if(sendModeInput.value==='gmail'){openGmail(to,subject,body); setStatus(submitStatus,'ok','已打开 Gmail 写信页。');} else {await copyText(body);} }
+['input','change'].forEach(ev=>{[recipientEmailInput,subjectPrefixInput,sendModeInput,keyIdInput,publicKeyPemInput,relayUrlInput,relayBodyFieldInput,relaySubjectFieldInput,relayToFieldInput,relayExtraFieldsInput].forEach(el=>el.addEventListener(ev,()=>{updateRelayVisibility(); updateShareUrl(false); updateEnvelopePreview(false);}));});
+authTokenInput.addEventListener('input',()=>{setEffectiveAuthToken(authTokenInput.value,'manual'); updateShareUrl(false); updateEnvelopePreview(false);});
+document.getElementById('saveConfigBtn').addEventListener('click',saveConfig); document.getElementById('clearConfigBtn').addEventListener('click',clearConfig); document.getElementById('copyShareWithoutSecretBtn').addEventListener('click',()=>copyShare(false)); document.getElementById('copyShareWithSecretBtn').addEventListener('click',()=>copyShare(true)); document.getElementById('fillNowBtn').addEventListener('click',fillNow); featureSelect.addEventListener('change',renderFields); recordForm.addEventListener('submit',submitRecord);
+loadConfig(); loadHashConfig(); updateRelayVisibility(); renderFields(); updateShareUrl(false); updateSecretMeta();
+</script>
+</body>
+</html>

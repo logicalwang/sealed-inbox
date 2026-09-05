@@ -10,16 +10,12 @@ A self-hosted receiver for **end-to-end encrypted personal records** sent
 over plain email. Any device with a web browser can be the sender; the
 receiver runs on a Linux box, a Termux phone, or inside a container.
 
-```
-┌──────────┐   pretty JSON          ┌──────────┐   RFC822 over    ┌──────────┐
-│  sender  │   after a marker line  │  email   │   IMAP / IDLE    │ receiver │
-│  (any    │ ──────────────────────▶│  server  │ ────────────────▶│  (this)  │
-│  client) │   RSA-OAEP + AES-GCM   │          │                  │          │
-└──────────┘                        └──────────┘                  └─────┬────┘
-                                                                       │
-                                                                CSV, charts,
-                                                                Seafile
-```
+![how a record travels](docs/architecture.svg)
+
+Also see [`frontend/`](frontend/) — the source of the sender web page
+(drop-in replacement for the deployed `secure-relay-fast-v4.html`), and
+[`deploy/`](deploy/) for the sanitized production deployment recipes
+(Termux: cloudflared tunnel, boot autostart, Telegram URL-watch).
 
 The wire format is the production v4 format produced by
 `secure-relay-fast-v4.html` (and any conforming sender). The email

@@ -47,6 +47,7 @@ EXCLUDE_DIR_PARTS = {
     ".git",
     "__pycache__",
     "docs",                  # protocol doc must name the marker
+    "frontend",              # sender web page: its JS must name the marker
     "data",                  # runtime output (git-ignored): records, logs,
                              # login audits — free text the user wrote
     "keys",                  # runtime-generated keypair (git-ignored);
@@ -71,6 +72,15 @@ EXCLUDE_FILES = {
     Path("tests/test_t3_dedupe.py"),
     Path("tests/test_t6_dashboard.py"),
     Path("tests/test_t8_security.py"),
+}
+
+# The Termux:Boot shebang is the platform-required interpreter path —
+# every Termux boot script on earth carries it. Not a leak.
+PATTERN_ALLOWED: dict[str, set[Path]] = {
+    "termux_path": {
+        Path("deploy/termux/bg-watchdog.sh"),
+        Path("deploy/termux/start-bg-watchdog.sh"),
+    },
 }
 
 # In `src/`, the marker literal "OPENCLAW_SECURE_RECORD_V1" is a
@@ -136,7 +146,10 @@ def main() -> int:
         except (UnicodeDecodeError, IsADirectoryError):
             continue
         for label, pat in generic + local:
+            allowed = PATTERN_ALLOWED.get(label, set())
             for m in re.finditer(pat, text, flags=re.IGNORECASE):
+                if rel in allowed:
+                    continue
                 failures.append(f"{rel}: [{label}] {m.group(0)!r}")
         # The OpenClaw marker is allowed only in protocol-aware files.
         if rel not in ALLOWED_OPENCLAW_FILES:

@@ -50,6 +50,8 @@ formula-injection-safe.
 - [README.zh-CN.md](README.zh-CN.md): 简体中文版完整文档
 - [docs/PROTOCOL.md](docs/PROTOCOL.md): complete v4 wire-format specification — enough to implement a sender from scratch
 - [config.example.yaml](config.example.yaml): every configuration key, with comments
+- [frontend/secure-relay-fast-v4.html](frontend/secure-relay-fast-v4.html): the sender web page (single file; the <script> block is the reference crypto implementation)
+- [deploy/termux/](deploy/termux/): sanitized production deployment scripts (cloudflared tunnel on Termux, watchdog, boot autostart, Telegram notifications via env file)
 
 ## Optional
 

@@ -109,7 +109,8 @@ dashboard:
             [sys.executable, str(ROOT / "src" / "charts.py"),
              "--csv", str(cfg.storage.records_csv),
              "--out", str(cfg.storage.charts_dir / f"records_{window}.png"),
-             "--window", window, "--unit", cfg.charts.metric_unit],
+             "--window", window, "--unit", cfg.charts.metric_unit,
+             "--low", str(cfg.dashboard.low), "--high", str(cfg.dashboard.high)],
             check=True, capture_output=True, text=True, timeout=120)
     return cfg, access_key
 
