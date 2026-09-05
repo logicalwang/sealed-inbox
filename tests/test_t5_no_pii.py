@@ -80,6 +80,7 @@ ALLOWED_OPENCLAW_FILES = {
                            # legitimately contains the marker word
     Path(".env.example"),
     Path("README.md"),
+    Path("README.zh-CN.md"),
 }
 
 
