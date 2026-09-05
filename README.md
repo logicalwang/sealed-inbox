@@ -2,6 +2,10 @@ English | [简体中文](README.zh-CN.md) | LLM-friendly overview: [llms.txt](ll
 
 # sealed-inbox
 
+> **Your health records belong to you.** Log them from any browser,
+> store them on your own server — and your mail provider never reads
+> a single word.
+
 A self-hosted receiver for **end-to-end encrypted personal records** sent
 over plain email. Any device with a web browser can be the sender; the
 receiver runs on a Linux box, a Termux phone, or inside a container.
@@ -144,6 +148,11 @@ IDLE every 25 minutes (Gmail drops longer IDLEs); the pipeline runs as
 a subprocess whenever new matching mail arrives.
 
 ## View your data (dashboard)
+
+Want a 60-second taste first? `python3 -m src.demo` spins up a
+throwaway workspace with two weeks of fake glucose readings, renders
+the charts and serves the dashboard — nothing touches your real
+config, and Ctrl-C throws it all away.
 
 `python3 -m src.dashboard` serves a mobile-friendly, zero-dependency
 web page on the configured port (default `0.0.0.0:8086`): latest

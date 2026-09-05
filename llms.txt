@@ -22,7 +22,8 @@ python3 -m src.sender generate keys               # keypair → keys/ (git-ignor
 python3 -m src.sender new-kid phone-form          # kid secret → kid_secrets.json
 echo '<app-password>' > ~/.config/secure-record/imap-app-password
 echo '<dashboard-secret>' > ~/.config/secure-record/dashboard-access-key
-python3 -m tests.test_t1_v4_compat                # also t2..t6 — all offline
+python3 -m src.demo                               # 60-second taste: fake data + dashboard
+python3 -m tests.test_t1_v4_compat                # also t2..t7 — all offline
 python3 -m src.watcher &                          # IMAP IDLE receiver
 python3 -m src.dashboard                          # web UI on :8086 (POST login)
 ```
