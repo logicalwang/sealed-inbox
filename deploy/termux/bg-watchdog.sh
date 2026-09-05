@@ -54,7 +54,16 @@ report_tunnel_url_change() {
     prev="$(cat "$URL_STATE" 2>/dev/null || true)"
     if [ "$url" != "$prev" ]; then
         printf '%s\n' "$url" > "$URL_STATE"
-        notify_tg "🔁 sealed-inbox 面板地址更新: $url"
+        local link=""
+        [ -f "$APP_DIR/deploy/termux/make_v6_link.py" ] && \
+            link="$(python3 "$APP_DIR/deploy/termux/make_v6_link.py" \
+                    --app-dir "$APP_DIR" --dash "$url" 2>/dev/null || true)"
+        if [ -n "$link" ]; then
+            notify_tg "🔁 sealed-inbox 面板地址更新: $url
+🔗 一键入口(点这个): $link"
+        else
+            notify_tg "🔁 sealed-inbox 面板地址更新: $url"
+        fi
         echo "Tunnel URL changed: $url (Telegram notified)"
     fi
 }
