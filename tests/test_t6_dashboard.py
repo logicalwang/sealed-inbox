@@ -210,7 +210,7 @@ dashboard:
             failures.append("rate limiting")
     finally:
         server2.shutdown()
-        server2.close()
+        server2.server_close()
 
     if failures:
         print(f"\nT6 FAIL: {failures}")
