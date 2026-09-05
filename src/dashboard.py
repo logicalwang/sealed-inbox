@@ -446,7 +446,12 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(message)s")
     cfg = load_config()
     access_key = load_access_key(cfg)
-    server = make_server(cfg, access_key)
+    try:
+        server = make_server(cfg, access_key)
+    except OSError as e:
+        print(f"cannot bind {cfg.dashboard.bind}:{cfg.dashboard.port}: {e}\n"
+              f"  → 端口被占用？改 config.yaml 里的 dashboard.port 再启动。")
+        return 1
     d = cfg.dashboard
     print(f"sealed-inbox dashboard listening on http://{d.bind}:{d.port}")
     print("  本机: http://localhost:" + str(d.port))

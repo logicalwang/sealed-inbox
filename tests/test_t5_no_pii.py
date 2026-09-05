@@ -47,6 +47,8 @@ EXCLUDE_DIR_PARTS = {
     ".git",
     "__pycache__",
     "docs",                  # protocol doc must name the marker
+    "data",                  # runtime output (git-ignored): records, logs,
+                             # login audits — free text the user wrote
     "keys",                  # runtime-generated keypair (git-ignored);
                              # PEMs living there are by design
     "_t1_work",
@@ -56,6 +58,9 @@ EXCLUDE_DIR_PARTS = {
     "_t5_work",
 }
 EXCLUDE_FILES = {
+    # runtime secrets / user's own values (git-ignored by design)
+    Path("kid_secrets.json"),
+    Path("config.yaml"),     # contains the user's real imap.username
     # this test contains its own generic pattern strings
     Path("tests/test_t5_no_pii.py"),
     # the local patterns file contains your real values by design

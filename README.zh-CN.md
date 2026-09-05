@@ -215,7 +215,9 @@ OPENCLAW_SECURE_RECORD_V1
 ## 测试
 
 ```
-$ for t in tests/test_t*.py; do python3 -m "tests.${t##*/}" || break; done
+$ for t in test_t1_v4_compat test_t2_real_email test_t3_dedupe \
+           test_t4_watcher_idle test_t5_no_pii test_t6_dashboard; \
+  do python3 -m "tests.$t" || break; done
 T1 PASS
 T2 PASS
 T3 PASS
@@ -241,6 +243,11 @@ T6 PASS
 * T6 在临时端口上启动真实面板服务，实测认证流（POST 错误/正确口令）、
   断言 URL 查询串携带口令按设计被拒绝、会话 cookie、`/api/status`，
   并断言图表请求无法逃出 `charts_dir`（路径穿越 → 404）。
+
+想在不接真实邮箱的情况下给接收端喂记录（批量导入、补录）？T3 就是
+现成配方：它用一个进程内假对象 monkeypatch `src.pipeline.imaplib.IMAP4_SSL`
+然后调用 `pipeline.run()` —— 照抄这个垫片，把 `src.sender.build()`
+构造好的信封喂进去即可。
 
 ## 背景
 

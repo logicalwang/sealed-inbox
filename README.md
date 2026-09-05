@@ -234,7 +234,9 @@ The receiver also accepts the alias marker `HERMES_SECURE_RECORD_V1`.
 ## Tests
 
 ```
-$ for t in tests/test_t*.py; do python3 -m "tests.${t##*/}" || break; done
+$ for t in test_t1_v4_compat test_t2_real_email test_t3_dedupe \
+           test_t4_watcher_idle test_t5_no_pii test_t6_dashboard; \
+  do python3 -m "tests.$t" || break; done
 T1 PASS
 T2 PASS
 T3 PASS
@@ -266,6 +268,12 @@ The test suite is fully offline:
   that a password carried in a URL query string is rejected by
   design, the session cookie, `/api/status`, and that chart requests
   cannot escape `charts_dir` (path traversal → 404).
+
+Want to feed records to the receiver without a mailbox (batch import,
+backfill)? T3 contains the recipe: it monkeypatches
+`src.pipeline.imaplib.IMAP4_SSL` with an in-process fake and calls
+`pipeline.run()` — copy that shim and hand it pre-built envelopes
+from `src.sender.build()`.
 
 ## Background
 

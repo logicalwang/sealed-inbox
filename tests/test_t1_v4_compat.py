@@ -70,8 +70,7 @@ def main() -> int:
         assert decrypted == record, f"prod returned {decrypted!r}, expected {record!r}"
         print(f"OK production:   kid={parsed['kid']} -> {decrypted}")
     else:
-        print(f"SKIP production oracle: set $PROD_RECEIVER_PATH to enable "
-              f"(looked for {PROD!r})")
+        print("SKIP production oracle: set $PROD_RECEIVER_PATH to enable")
 
     # 3. Sanity: confirm the envelope shape the test exercised
     assert set(built.envelope) == {"v", "kid", "ts", "nonce", "alg", "ek", "iv", "ct", "mac"}
