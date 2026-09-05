@@ -81,6 +81,7 @@ ALLOWED_OPENCLAW_FILES = {
     Path("src/sender.py"),
     Path("src/pipeline.py"),
     Path("src/watcher.py"),
+    Path("src/demo.py"),   # its throwaway demo config carries the marker word
     Path("config.example.yaml"),
     Path("config.yaml"),   # user's runtime copy; its subject_prefix
                            # legitimately contains the marker word
