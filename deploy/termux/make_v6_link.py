@@ -10,7 +10,7 @@ Usage: make_v6_link.py [--app-dir ~/apps/sealed-inbox] --dash <current dashboard
 Env:   FORM_URL (your GitHub Pages sender URL, see notify.env)
        RELAY_URL (the form-relay endpoint configured on the sender page)
 """
-import argparse, base64, json, sys, urllib.parse
+import argparse, base64, json, os, sys, urllib.parse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -28,7 +28,6 @@ def main() -> int:
     ap.add_argument("--relay-url", default=os.environ.get("RELAY_URL", ""),
                     help="form-relay endpoint (relay_post mode)")
     args = ap.parse_args()
-    import os
     app = Path(os.path.expanduser(args.app_dir))
 
     from src.config import load_config
