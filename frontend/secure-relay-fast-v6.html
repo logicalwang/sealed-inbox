@@ -232,6 +232,19 @@ loadConfig(); loadHashConfig(); updateRelayVisibility(); renderFields(); updateS
     });
   });
   mo.observe(host,{attributes:true,attributeFilter:['class'],childList:true,characterData:true});
+
+  /* dad-friendly: whenever the record fields render, prefill the timestamp
+     with "now" — the only thing left to type is the value itself. Uses the
+     page's own fillNow() (defined by the crypto script, untouched). */
+  var df=document.getElementById('dynamicFields');
+  if(df){
+    var prefill=function(){
+      var ts=document.getElementById('timestamp');
+      if(ts && !ts.value && typeof fillNow==='function') fillNow();
+    };
+    new MutationObserver(prefill).observe(df,{childList:true,subtree:true});
+    prefill();
+  }
 })();
 </script>
 
