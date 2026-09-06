@@ -246,6 +246,28 @@ loadConfig(); loadHashConfig(); updateRelayVisibility(); renderFields(); updateS
     prefill();
   }
 })();
+
+/* ── v6: one-screen page — every card after the record form starts
+   collapsed; click its header to expand/collapse. ── */
+(function(){
+  var cards=document.querySelectorAll('.wrap > .card');
+  for(var i=1;i<cards.length;i++)(function(card){
+    var h=card.querySelector('h2');
+    if(!h) return;
+    card.classList.add('sealed-collapsible','sealed-collapsed');
+    h.classList.add('sealed-toggle');
+    h.addEventListener('click',function(){
+      card.classList.toggle('sealed-collapsed');
+      h.classList.toggle('sealed-open');
+    });
+  })(cards[i]);
+  var st=document.createElement('style');
+  st.textContent='.sealed-toggle{cursor:pointer;user-select:none}' +
+    '.sealed-toggle::after{content:"▸";float:right;color:#94a3b8;font-size:.9em}' +
+    '.sealed-toggle.sealed-open::after{content:"▾"}' +
+    '.sealed-collapsible.sealed-collapsed > *:not(h2){display:none !important}' +  // !important: overrides the inline display:block that updateRelayVisibility() sets on #relayConfig
+  document.head.appendChild(st);
+})();
 </script>
 
 </body>
