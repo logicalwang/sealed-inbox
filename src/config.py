@@ -75,6 +75,7 @@ class SeafileConfig:
     server_url: str
     repo_id: str
     token_file: str
+    remote_dir: str = "/"          # library folder (URL-encoded for the link query)
     replace_existing: bool = True
 
     def load_token(self) -> str:
@@ -200,6 +201,7 @@ def load_config(path: str | os.PathLike[str] | None = None) -> AppConfig:
             server_url=sf.get("server_url", ""),
             repo_id=sf.get("repo_id", ""),
             token_file=sf.get("token_file", ""),
+            remote_dir=str(sf.get("remote_dir", "/")),
             replace_existing=bool(sf.get("replace_existing", True)),
         )
 

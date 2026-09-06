@@ -294,6 +294,10 @@ def _last_csv_row(csv_path: Path) -> dict[str, str]:
 
 def run(cfg_path: str | None = None) -> int:
     cfg = load_config(cfg_path)
+    if cfg.dashboard.pipeline_log:
+        fh = logging.FileHandler(cfg.dashboard.pipeline_log)
+        fh.setFormatter(logging.Formatter("[%(asctime)s] %(message)s"))
+        log.addHandler(fh)                      # 面板"运行日志"卡片读这个文件
     log.info("pipeline start")
 
     try:
@@ -358,9 +362,10 @@ def run(cfg_path: str | None = None) -> int:
     # Charts and archive only run if new records were appended.
     if new_ids:
         pngs = _regenerate_charts(cfg, cfg.storage.records_csv)
-        if cfg.archive.backend == "seafile":
+        if cfg.archive.backend == "seafile" and cfg.archive.seafile:
             files = [cfg.storage.records_csv] + pngs
-            archive_files(cfg.archive, files)
+            archive_files(cfg.archive, files,
+                          remote_dir=cfg.archive.seafile.remote_dir)
         log.info("appended %d record(s)", len(new_ids))
         last = _last_csv_row(cfg.storage.records_csv)
         _notify_telegram(
