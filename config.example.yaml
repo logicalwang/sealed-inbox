@@ -54,6 +54,8 @@ archive:
   seafile:
     server_url: "https://seafile.example.com"
     repo_id: ""                # UUID of the target library
+    # Library folder for the uploads (non-ASCII OK; use "/" for root)
+    remote_dir: "/"
     token_file: "~/.config/secure-record/seafile-token"
     # When true, overwrite remote files with the same name
     replace_existing: true
