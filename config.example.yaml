@@ -58,6 +58,18 @@ archive:
     # When true, overwrite remote files with the same name
     replace_existing: true
 
+# ── Notifications ──────────────────────────────────────────
+# Telegram push on every successful record append — this is also the
+# "confirmation" channel for non-technical senders (submit → phone buzzes).
+notifications:
+  telegram:
+    enabled: false
+    # Numeric chat id; group ids look like -100XXXXXXXXX
+    chat_id: ""
+    # Path to a file containing the bot token (read at runtime, git-ignored)
+    # Create a bot with @BotFather.
+    bot_token_file: "~/.config/secure-record/telegram-bot-token"
+
 # ── Charts ─────────────────────────────────────────────────
 charts:
   # Rolling windows to render. Each produces one PNG (records_<window>.png).

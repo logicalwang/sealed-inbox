@@ -113,12 +113,31 @@ class DashboardConfig:
 
 
 @dataclass
+class TelegramConfig:
+    enabled: bool = False
+    chat_id: str = ""
+    bot_token_file: Path | None = None
+
+    def load_token(self) -> str:
+        if not self.bot_token_file or not self.bot_token_file.expanduser().is_file():
+            raise FileNotFoundError(
+                f"telegram bot token file not found: {self.bot_token_file}")
+        return self.bot_token_file.expanduser().read_text().strip()
+
+
+@dataclass
+class NotificationConfig:
+    telegram: TelegramConfig | None = None
+
+
+@dataclass
 class AppConfig:
     imap: ImapConfig
     crypto: CryptoConfig
     storage: StorageConfig
     charts: ChartsConfig
     dashboard: DashboardConfig
+    notifications: NotificationConfig
     archive: ArchiveConfig
     project_root: Path
 
@@ -200,12 +219,25 @@ def load_config(path: str | os.PathLike[str] | None = None) -> AppConfig:
         rate_limit_window=int(d_raw.get("rate_limit_window", 300)),
     )
 
+    notif_raw = raw.get("notifications", {}) or {}
+    tg_raw = notif_raw.get("telegram", {}) or {}
+    telegram = None
+    if tg_raw:
+        telegram = TelegramConfig(
+            enabled=bool(tg_raw.get("enabled", False)),
+            chat_id=str(tg_raw.get("chat_id", "")),
+            bot_token_file=_resolve(tg_raw["bot_token_file"], root)
+            if tg_raw.get("bot_token_file") else None,
+        )
+    notifications = NotificationConfig(telegram=telegram)
+
     return AppConfig(
         imap=imap,
         crypto=crypto,
         storage=storage,
         charts=charts,
         dashboard=dashboard,
+        notifications=notifications,
         archive=archive,
         project_root=root,
     )

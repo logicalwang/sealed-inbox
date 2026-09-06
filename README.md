@@ -43,6 +43,7 @@ uploads to Seafile.
 | `tests/test_t6_dashboard.py` | T6: dashboard auth flow, session cookie, chart-path sandbox, rate limiting |
 | `tests/test_t7_demo.py` | T7: demo mode builds a throwaway workspace and serves it |
 | `tests/test_t8_security.py` | T8: CSV formula-injection guard, strict MAC auth, freshness window |
+| `tests/test_t9_notify.py` | T9: Telegram push on new records (enabled / deduped / disabled) |
 | `docs/PROTOCOL.md` | Complete wire-format spec (v1) — enough to build a sender |
 | `config.example.yaml` | Configuration template |
 

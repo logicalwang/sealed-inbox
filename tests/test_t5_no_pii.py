@@ -72,6 +72,7 @@ EXCLUDE_FILES = {
     Path("tests/test_t3_dedupe.py"),
     Path("tests/test_t6_dashboard.py"),
     Path("tests/test_t8_security.py"),
+    Path("tests/test_t9_notify.py"),
 }
 
 # The Termux:Boot shebang is the platform-required interpreter path —

@@ -41,8 +41,9 @@ refused) behind per-IP rate limiting, and chart files are served
 strictly from `charts_dir`. Optional hardening: `crypto.require_valid_mac`
 turns the public-key-only submission model into real sender
 authentication (the reference frontend already signs), and
-crypto.max_age_hours` adds a freshness window. CSV cells are
-formula-injection-safe.
+`crypto.max_age_hours` adds a freshness window. CSV cells are
+formula-injection-safe. Successful appends can push a Telegram
+confirmation (`notifications.telegram`).
 
 ## Docs
 
@@ -62,4 +63,5 @@ formula-injection-safe.
 - [src/sender.py](src/sender.py): reference sender + setup CLI (`generate`, `new-kid`)
 - [src/seafile_upload.py](src/seafile_upload.py): optional Seafile archive upload
 - [src/config.py](src/config.py): YAML config loader
-- [tests/](tests/): T1 sender↔receiver↔production-oracle · T2 multipart/Formspree reality · T3 dedupe · T4 hand-rolled IDLE · T5 no-PII scan · T6 dashboard auth + traversal sandbox — all offline
+- [tests/](tests/): T1 sender↔receiver↔production-oracle · T2 multipart/Formspree reality · T3 dedupe · T4 hand-rolled IDLE · T5 no-PII scan · T6 dashboard auth + traversal sandbox · T7 demo mode · T8 security controls · T9 Telegram push — all offline
+- [deploy/termux/](deploy/termux/): sanitized production deployment scripts (cloudflared tunnel on Termux, watchdog, boot autostart, Telegram notifications via env file)

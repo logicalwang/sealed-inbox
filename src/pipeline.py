@@ -28,6 +28,8 @@ import ssl
 import subprocess
 import sys
 import time
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -260,6 +262,36 @@ def process_one(body: str, csv_path: Path, private_key_pem: bytes,
     return True
 
 
+def _notify_telegram(cfg: AppConfig, text: str) -> None:
+    """Best-effort push to the configured Telegram chat. Failures are
+    logged, never raised — a notification outage must not affect records.
+    """
+    tg = cfg.notifications.telegram
+    if not tg or not tg.enabled:
+        return
+    try:
+        token = tg.load_token()
+    except FileNotFoundError as e:
+        log.warning("telegram notify skipped: %s", e)
+        return
+    data = urllib.parse.urlencode({"chat_id": tg.chat_id, "text": text}).encode()
+    try:
+        with urllib.request.urlopen(
+                urllib.request.Request(
+                    f"https://api.telegram.org/bot{token}/sendMessage",
+                    data=data), timeout=20) as resp:
+            if resp.status != 200:
+                log.warning("telegram notify: HTTP %s", resp.status)
+    except Exception as e:
+        log.warning("telegram notify failed: %s", e)
+
+
+def _last_csv_row(csv_path: Path) -> dict[str, str]:
+    with csv_path.open(encoding="utf-8-sig") as f:
+        rows = list(csv.DictReader(f))
+    return rows[-1] if rows else {}
+
+
 def run(cfg_path: str | None = None) -> int:
     cfg = load_config(cfg_path)
     log.info("pipeline start")
@@ -330,6 +362,12 @@ def run(cfg_path: str | None = None) -> int:
             files = [cfg.storage.records_csv] + pngs
             archive_files(cfg.archive, files)
         log.info("appended %d record(s)", len(new_ids))
+        last = _last_csv_row(cfg.storage.records_csv)
+        _notify_telegram(
+            cfg,
+            f"🩸 sealed-inbox: 新增 {len(new_ids)} 条记录\n"
+            f"最新: {last.get('timestamp', '?')} · {last.get('glucose_value', '?')} "
+            f"{last.get('unit', '')} {last.get('context', '')}".rstrip())
     else:
         log.info("no new records")
     return 0

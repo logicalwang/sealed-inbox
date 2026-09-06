@@ -39,6 +39,7 @@ Linux 主机、Termux 手机或容器里。
 | `tests/test_t6_dashboard.py` | T6：面板认证流、会话 cookie、图表路径沙箱、登录限速 |
 | `tests/test_t7_demo.py` | T7：演示模式一键建临时工作区并启动面板 |
 | `tests/test_t8_security.py` | T8：CSV 公式注入防护、严格 MAC 认证、新鲜度窗口 |
+| `tests/test_t9_notify.py` | T9：新记录 Telegram 推送（启用 / 去重 / 禁用） |
 | `docs/PROTOCOL.md` | 完整线上格式规范（v1）—— 足以照此实现一个发送端 |
 | `config.example.yaml` | 配置模板 |
 
