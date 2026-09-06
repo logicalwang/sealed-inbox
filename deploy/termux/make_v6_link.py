@@ -13,7 +13,7 @@ Env:   FORM_URL (your GitHub Pages sender URL, see notify.env)
 import argparse, base64, json, os, sys, urllib.parse
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))   # deploy/termux → 仓库根
 
 def b64u(text: str) -> str:
     return base64.urlsafe_b64encode(text.encode("utf-8")).rstrip(b"=").decode("ascii")
